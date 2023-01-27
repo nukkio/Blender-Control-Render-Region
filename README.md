@@ -60,7 +60,7 @@ Example:
       - testRR_2x2_1_1.png second row, second region, bottom right, last.
     - By merging the rendered images, you get the final image, 3840x2160.
 
-###### Problems with Denoise in Cycles
+### Problems with Denoise in Cycles
 This addon can be used with both Cycles and Eevee, but with Cycles there are problems using "Denoise" (Tab Render Properties > Sampling panel > Render - Denoise check): the "denoise" produces artifacts along the edges of the image, usually only for single pixels along the edges: by merging the images these artifacts will be clearly visible as they are all close and aligned.
 To solve this problem, the regions must be enlarged by adding margin which will then be cut before merging the images: this is in progress...
 
