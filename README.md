@@ -18,7 +18,7 @@ Blender version: 3.4.
 
 
 ## How the addon works
-there are two methods: Divide and Multiply
+There are two methods: Divide and Multiply
 
 ###### Divide
 The render is divided into regions according to the values indicated in the "Columns" and "Rows" fields.
