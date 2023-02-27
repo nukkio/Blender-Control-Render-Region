@@ -44,32 +44,14 @@ from bpy.props import (
 					)
 from bpy.app.handlers import render_pre, render_post, render_cancel
 from bpy.app import driver_namespace
-#from pprint import pprint
 
-#from bpy.app.handlers import persistent, frame_change_pre
-
-#		FloatVectorProperty,
-#		IntVectorProperty,
-
-#scn = bpy.types.Scene
-
-handler_key = "DEV_FUNC_HKRR"
-
-#@persistent 
-#def nr_animation_update(scn):
-#	""" Function for updating the effects when the scene update """    
-#	print("-----------------------------------------")
-##	scn = context.scene
-#	ps = scn.renderregionsettings
-#	print(str(ps.RR_renderGo))
+#handler_key = "DEV_FUNC_HKRR"
 
 class RenderRegionSettings(PropertyGroup):
 
 	def method_update(self,context):
 		print("method_update")
 		print(str(self.RR_method))
-#		print(str(self.RR_rowscols))
-#		print(str(self.RR_dim_region))
 		if self.RR_method=="DIVIDE":
 			self.RR_rowscols=True
 			self.RR_dim_region=False
@@ -83,9 +65,6 @@ class RenderRegionSettings(PropertyGroup):
 		delta_y=0
 		resx=context.scene.render.resolution_x
 		resy=context.scene.render.resolution_y
-#		tot_reg=0
-#		num_cols=0
-#		num_rows=0
 		if self.RR_dim_region==False:
 			delta_x = 1/self.RR_reg_columns
 			delta_y = 1/self.RR_reg_rows
@@ -122,11 +101,6 @@ class RenderRegionSettings(PropertyGroup):
 				print("RenderRegion addon - "+msgerr+" - change value")
 			self.RR_msg1=msgerr
 			
-#			print(delta_x)
-#			print(delta_y)
-#			print(count_decimal_x)
-#			print(count_decimal_y)
-
 	#all properties for the gui in the panel
 	is_enabled: BoolProperty(
 		name="isEnabled",
@@ -182,7 +156,6 @@ class RenderRegionSettings(PropertyGroup):
 
 	RR_dim_region:BoolProperty(
 		name = "Use render dimension",
-#		description = "Use render dimension for each region",
 		description = "Multiply resolution by a multiplier, and render regions using actual dimension",
 		default = False)
 #		update=multip_update)
@@ -291,12 +264,6 @@ class RenderRegionSettings(PropertyGroup):
 		max = 1000
 		)
 	
-#	RR_msgMargins:StringProperty(
-#		name = "Margins message",
-#		description = "Margins message",
-#		default = "")
-		
-
 class RENDER_PT_Region(Panel):
 	bl_label = "Render Region"
 	bl_space_type = 'PROPERTIES'
@@ -307,29 +274,6 @@ class RENDER_PT_Region(Panel):
 		layout = self.layout
 		scn = context.scene
 		ps = scn.renderregionsettings
-		
-#		rowList=[]
-#		row1 = layout.row(align=True)
-#		rowList.append(row1)
-#		row2 = layout.row(align=True)
-#		rowList.append(row2)
-#		row3 = layout.row(align=True)
-#		rowList.append(row3)
-#		row4 = layout.row(align=True)
-#		rowList.append(row4)
-#		row5 = layout.row(align=True)
-#		rowList.append(row5)
-#		layout.row().separator()
-#		row6 = layout.row(align=True)
-#		rowList.append(row6)
-#		row7 = layout.row(align=True)
-#		rowList.append(row7)
-#		row8 = layout.row(align=True)
-#		rowList.append(row8)
-#		row9 = layout.row(align=True)
-#		rowList.append(row9)
-#		row10 = layout.row(align=True)
-#		rowList.append(row10)
 		
 		rowList=[]
 		box = layout.box()
@@ -432,8 +376,6 @@ class RENDER_PT_Region(Panel):
 		rn+=1
 #		rowList[rn].label(text=ps.RR_msg2)
 #		rn+=1
-#		rowList[rn].operator("rr.test", text="test var", icon="CANCEL")
-#		rn+=1
 		
 		
 
@@ -450,30 +392,10 @@ class testVar(Operator):
 		scn = context.scene
 		rnd = context.scene.render
 		ps = scn.renderregionsettings
-#		print(str(bpy.app.binary_path))
-
-#		executable path
-#		bpy.app.binary_path
-#		/home/ernes3/Programs/blender/blender
-
-#		path progetto
-#		bpy.data.filepath
-#		#/media/dati_1tb/lavoro/blender_addon/renderregion/test-renderegion.blend
-
-#		path render
-#		ps.RR_activeRendername=self.outputFolder + os.path.sep + self.region_name
-		
-#		self.report({'INFO'}, "Message %d %d" % (1, 2))
-		
-#		print("*******")
 		ar=AreaRegion()
 		ar.minx=44
-#		print(str(ar.getObject()))
 		ar2 = {"x1":1,"x2":2,"y1":3,"y2":4}
 		ar2['x1']=33
-#		print(str(ar2))
-#		 bpy.data.texts.new(
-#		return{'CANCELLED'}
 		return {'FINISHED'}
 
 class RenderObject:
@@ -543,11 +465,6 @@ class MarginCalculate(Operator):
 		scn = context.scene
 		rnd = context.scene.render
 		ps = scn.renderregionsettings
-#		ps.RR_renderGo=False;
-
-#		scene.renderregionsettings.RR_msgMargins=
-#		ps.RR_msgMargins="calculating..."
-#		print("----------------------MarginCalculate")
 
 		resx=rnd.resolution_x
 		resy=rnd.resolution_y
@@ -565,52 +482,10 @@ class MarginCalculate(Operator):
 			resy=rnd.resolution_y*ps.RR_multiplier
 
 		arMargW=[]
-#		arMargW2=[]
 		arMargW=self.calcMarg(context, resx, nregionsw, min(ps.RR_mrgmax,resx))
 		arMargH=[]
 		arMargH=self.calcMarg(context, resy, nregionsh, min(ps.RR_mrgmax,resy))
 		
-		##sort based on the length of the strings in array
-#		print("***************************")
-##		arMargW=[ ["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99],["0.0012345",95], ["0.0012345",97], ["0.00123456",3], ["0.0013245",99] ]
-##		arMargW=[["0.5512345",99],
-##		["0.555",98],
-##		["0.55123456",90],
-##		["0.5513245",89],
-##		["0.5512345",85],
-##		["0.5512345",81],
-##		["0.55123456",80],
-##		["0.5513245",79],
-##		["0.5512345",75],
-##		["0.5512345",72],
-##		["0.55123456",70],
-##		["0.5513245",69],
-##		["0.5512345",65],
-##		["0.5512345",62],
-##		["0.55",60],
-##		["0.55",59],
-##		["0.5512345",55],
-##		["0.5512345",50],
-##		["0.55123456",49],
-##		["0.5513245",45],
-##		["0.5512345",40],
-##		["0.5512345",39],
-##		["0.55123456",35],
-##		["0.5513245",30],
-##		["0.5512345",29],
-##		["0.5512345",25],
-##		["0.55123456",20],
-##		["0.5513245",19],
-##		["0.5512345",15],
-##		["0.5512345",10],
-##		["0.55123456",9],
-##		["0.5513245",5],
-##		["0.5512345",3]]
-##		arMargW=[["0.5515625", 99], ["0.55", 96], ["0.5484375", 93], ["0.546875", 90], ["0.5453125", 87], ["0.54375", 84], ["0.5421875", 81], ["0.540625", 78], ["0.5390625", 75], ["0.5375", 72], ["0.5359375", 69], ["0.534375", 66], ["0.5328125", 63], ["0.53125", 60], ["0.5296875", 57], ["0.528125", 54], ["0.5265625", 51], ["0.525", 48], ["0.5234375", 45], ["0.521875", 42], ["0.5203125", 39], ["0.51875", 36], ["0.5171875", 33], ["0.515625", 30], ["0.5140625", 27], ["0.5125", 24], ["0.5109375", 21], ["0.509375", 18], ["0.5078125", 15], ["0.50625", 12], ["0.5046875", 9], ["0.503125", 6], ["0.5015625", 3]]
-#		print(arMargW)
-#		print("----")
-##		arMargW2 = sorted(arMargW, key = lambda x: (len(x[0]), -x[1]))
-##		print(arMargW2)
 		arMargW.sort(key = lambda x: (len(x[0]), -x[1]))
 		arMargH.sort(key = lambda y: (len(y[0]), -y[1]))
 #		print(arMargW)
@@ -696,22 +571,15 @@ class RenderRegions(Operator):
 #		print("event PRE")
 		self.rendering = True
 		scene.renderregionsettings.RR_msg1="render "+str(scene.renderregionsettings.RR_cntrnd)+"/"+str(scene.renderregionsettings.RR_maxrnd)
-#		scene.renderregionsettings.RR_msg2="rendering :"+scene.renderregionsettings.RR_activeRendername
 
 	def post(self, scene, context=None):
 		self.rendering = False
 		self.render_ready=False
 #		print("event POST---------------"+str(self.rendering))
 #		scene.renderregionsettings.RR_msg2="rendered :"+scene.renderregionsettings.RR_activeRendername
-		#scene.renderregionsettings.RR_renderGo=False
-
 #		print("**************end")
 		for x in self.saveFileOutputs:
 			tempNodeFO=scene.node_tree.nodes[str(x[0])]
-#			tmpn=0
-#			for xSlot in tempNodeFO.file_slots:
-#				xSlot.path=str(x[tmpn+1])
-#				tmpn=tmpn+1
 			tempslotcount=len(tempNodeFO.file_slots)
 #			print("riprendo fo= " + str(tempNodeFO) + " - slots=" + str(tempslotcount))
 			for xSlot in range(tempslotcount):
@@ -771,51 +639,6 @@ class RenderRegions(Operator):
 			ret_imageName=""
 			ret_usecrop=False
 			
-			####################################################################
-			####################################################################
-			####################################################################
-			####################################################################
-			
-#			pos_row=int(el/self.num_cols)
-#			pos_col=int( ( el - ( pos_row*self.num_cols) ) )
-#			
-#			border_min_x=self.min_x+(self.delta_x*pos_col)
-#			border_max_x=self.max_x+(self.delta_x*pos_col)
-#			border_min_y=(self.delta_y*self.num_rows)- ((pos_row)*self.delta_y)
-#			border_max_y=(self.delta_y*self.num_rows)- ((pos_row+1)*self.delta_y)
-#			
-#			##############################
-#			##margins
-#			resx=rnd.resolution_x
-#			resy=rnd.resolution_y
-#			relativeMargW=(1/resx)*ps.RR_mrg_w
-#			relativeMargH=(1/resy)*ps.RR_mrg_h
-#			if(ps.RR_useMargins==True):
-#				border_min_x=round(min(max((border_min_x-relativeMargW),0),1),8)
-#				border_max_x=round(min(max((border_max_x+relativeMargW),0),1),8)
-#				border_min_y=round(min(max((border_min_y+relativeMargH),0),1),8)
-#				border_max_y=round(min(max((border_max_y-relativeMargH),0),1),8)
-#			
-#			ret_regionArea = AreaRegion(
-#				border_min_x,
-#				border_max_y,
-#				border_max_x,
-#				border_min_y
-#				)
-
-#			tempRegionName=self.getRegionName(context,el)[0]
-#			#forse non corretto ma si ordinano bene le immagini
-#			self.region_name = self.outputImgName +"_"+tempRegionName# + rnd.file_extension
-
-##			#forse corretto ma non si ordinano bene le immagini
-##			self.region_name = self.outputImgName +"_"+str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_col + "_" + n_row# + rnd.file_extension
-
-#			ret_imageName=self.outputFolderAbs + os.path.sep + self.region_name
-			
-			####################################################################
-			####################################################################
-			####################################################################
-			####################################################################
 			tempRegionData=el
 			
 #			tempRegionName = "###_" + str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_row + "_" + n_col
@@ -950,11 +773,9 @@ class RenderRegions(Operator):
 			strScript+="strRowNames=()"+"\n"
 			strScript+="tmpImgNamesPerRow=()"+"\n"
 		strScript+=""+"\n"
-#		bpy.data.texts.new("ciao.py")
 		tmprow=0
 #		for ireg in range(0,len(arObRegions)):
 		for ireg in arObRegions:
-#			print(str(ireg.getObject()))
 			
 			comm=""
 			if(ireg.render==False):
@@ -1003,8 +824,6 @@ class RenderRegions(Operator):
 				strScript+="arrayImgNamesPerRow+=(\"$tmpImgNamesPerRow\")"+"\n"
 				strScript+="tmpImgNamesPerRow=()"+"\n"
 		
-#		bpy.data.texts['ciao.py'].write(strScript)
-		
 		pyJoin=self.writeJoinPython(context)
 		
 		strScript+="\n"
@@ -1023,16 +842,11 @@ class RenderRegions(Operator):
 		####################
 #		
 		fileScript=self.outputFolderAbs+ os.path.sep+blendName+".sh"
-#		fileScript="/media/dati_1tb/lavoro/blender_addon/renderregion/render/renderShell.sh"
 		
 		with open(fileScript, 'w') as file:
 			file.write(strScript)
 			file.close()
 
-#		saveFile = open(fileScript, "w")
-#		saveFile.write(strScript)
-#		saveFile.close()
-		
 		ps.RR_msg1="created "+fileScript
 		##todo add timer to empty msg
 
@@ -1047,9 +861,6 @@ class RenderRegions(Operator):
 		
 		strname=""
 		strnameScript=""
-		
-#		pos_row=int(self.arrayRegion[ps.RR_cntrnd]/self.num_cols)
-#		pos_col=int( ( self.arrayRegion[ps.RR_cntrnd] - ( pos_row*self.num_cols) ) )
 		
 		pos_row=int(index/self.num_cols)
 		pos_col=int( ( index - ( pos_row*self.num_cols) ) )
@@ -1073,76 +884,6 @@ class RenderRegions(Operator):
 		ps = scn.renderregionsettings
 #		if ps.RR_cntrnd<len(self.arrayRegion):
 		if ps.RR_cntrnd<len(self.allRegions):
-			##prende i valori dall'array di tutte le regioni allRegions
-			################################################################
-			################################################################
-			################################################################
-			################################################################
-			
-			
-#			pos_row=int(self.arrayRegion[ps.RR_cntrnd]/self.num_cols)
-#			pos_col=int( ( self.arrayRegion[ps.RR_cntrnd] - ( pos_row*self.num_cols) ) )
-#			
-#			border_min_x=self.min_x+(self.delta_x*pos_col)
-#			border_max_x=self.max_x+(self.delta_x*pos_col)
-#			border_min_y=(self.delta_y*self.num_rows)- ((pos_row)*self.delta_y)
-#			border_max_y=(self.delta_y*self.num_rows)- ((pos_row+1)*self.delta_y)
-#			
-#			##############################
-#			##margins
-#			if(ps.RR_useMargins==True):
-#				resx=rnd.resolution_x
-#				resy=rnd.resolution_y
-#				relativeMargW=(1/resx)*ps.RR_mrg_w
-#				relativeMargH=(1/resy)*ps.RR_mrg_h
-#				
-#				border_min_x=round(min(max((border_min_x-relativeMargW),0),1),8)
-#				border_max_x=round(min(max((border_max_x+relativeMargW),0),1),8)
-#				border_min_y=round(min(max((border_min_y+relativeMargH),0),1),8)
-#				border_max_y=round(min(max((border_max_y-relativeMargH),0),1),8)
-
-#			rnd.border_min_x=border_min_x
-#			rnd.border_min_y=border_max_y
-#			rnd.border_max_x=border_max_x
-#			rnd.border_max_y=border_min_y
-
-######			decCol=math.ceil(math.log(self.num_cols,10))
-######			decRows=math.ceil(math.log(self.num_rows,10))
-######			dec=max(decCol,decRows)
-######			n_row = f'{pos_row:0{dec}d}'
-######			n_col = f'{pos_col:0{dec}d}'
-######			
-#######			nome della regione: colonnexrighe riga colonna
-######			tempRegionName = str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_row + "_" + n_col
-#			
-#			tempRegionName=self.getRegionName(context,self.arrayRegion[ps.RR_cntrnd])[0]
-#			
-#			#ciclo per cambiare i path nei fileoutput
-#			#alla fine del render dovrebbero essere rimessi a posto
-##			print("****----****----****----****----")
-#			for x in self.saveFileOutputs:
-#				tempNodeFO=scn.node_tree.nodes[str(x[0])]
-#				tempslotcount=len(tempNodeFO.file_slots)
-##				print("cambio fo= " + str(tempNodeFO) + " - slots=" + str(tempslotcount))
-#				for xSlot in range(tempslotcount):
-#					tempNodeFO.file_slots[xSlot].path=str(x[xSlot+1]) + tempRegionName + "_"
-#			#####################
-
-##			self.region_name = self.outputImgName +"_"+str(self.num_rows)+"x"+str(self.num_cols) + "_" + n_row + "_" + n_col + rnd.file_extension
-
-#			#forse non corretto ma si ordinano bene le immagini
-##			self.region_name = self.outputImgName +"_"+str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_row + "_" + n_col + rnd.file_extension
-#			self.region_name = self.outputImgName +"_"+tempRegionName + rnd.file_extension
-#			
-##			#forse corretto ma non si ordinano bene le immagini
-##			self.region_name = self.outputImgName +"_"+str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_col + "_" + n_row + rnd.file_extension
-
-#			ps.RR_activeRendername=self.outputFolder + os.path.sep + self.region_name
-			
-			################################################################
-			################################################################
-			################################################################
-			################################################################
 #			tempRegionData=self.allRegions[self.arrayRegion[ps.RR_cntrnd]]
 			tempRegionData=self.allRegions[ps.RR_cntrnd]
 			
@@ -1153,8 +894,6 @@ class RenderRegions(Operator):
 				rnd.border_min_y=tempRegionData.maxy
 				rnd.border_max_x=tempRegionData.maxx
 				rnd.border_max_y=tempRegionData.miny
-				################################################################
-				################################################################
 				
 				rnd.filepath=ps.RR_activeRendername
 				ps.RR_msg1="render "+str(ps.RR_cntrnd)+"/"+str(ps.RR_maxrnd)
@@ -1190,8 +929,6 @@ class RenderRegions(Operator):
 		ps.RR_cntrnd=0;
 		ps.RR_maxrnd=0;
 		
-#		ps.RR_createScript=True
-		
 		file_name=os.path.splitext( os.path.split(bpy.data.filepath)[1])[0]
 		self.outputFolderAbs=os.path.split( bpy.path.abspath(rnd.filepath) )[0]
 		self.outputFolder=os.path.split( bpy.path.relpath(rnd.filepath) )[0]
@@ -1201,7 +938,7 @@ class RenderRegions(Operator):
 #		print(self.outputFolderAbs)
 #		print(self.outputFolder)
 		
-#		print("ciclo cambio FileOutput........")
+#		print("change FileOutput........")
 		self.saveFileOutputs=[]
 		tempArrFO=[]
 		#ciclo per cambiare i path all'eventuale file output
@@ -1210,10 +947,6 @@ class RenderRegions(Operator):
 				if (xfo.type=="OUTPUT_FILE"):
 					tempArrFO=[]
 					tempArrFO.append(xfo.name)
-	#				tempslotcount=len(xfo.file_slots)-1
-	#				for xSlot in xfo.file_slots:
-	#					oldFOpath=xSlot.path
-	#					tempArrFO.append(oldFOpath)
 					tempslotcount=len(xfo.file_slots)
 	#				print("registro fo= " + str(xfo.name) + " - slots=" + str(tempslotcount))
 					for xSlot in range(tempslotcount):
@@ -1221,10 +954,6 @@ class RenderRegions(Operator):
 						tempArrFO.append(oldFOpath)
 					self.saveFileOutputs.append(tempArrFO)
 		
-#		print("ciclo cambio FileOutput fine........")
-		
-#		C.scene.node_tree.nodes["File Output"].file_slots[0].path
-
 		##todo
 #		if bpy.data.scenes["Scene"].render.image_settings.color_mode=="RGBA"
 #			if bpy.data.scenes["Scene"].render.film_transparent=True:
@@ -1250,9 +979,6 @@ class RenderRegions(Operator):
 		rnd.use_border = 1
 		rnd.use_crop_to_border=True
 		
-#		reg=[]
-#		errorInsertRegions=False
-		
 		if ps.RR_dim_region==False:
 			self.tot_reg=ps.RR_reg_columns*ps.RR_reg_rows
 			self.num_cols=ps.RR_reg_columns
@@ -1262,70 +988,7 @@ class RenderRegions(Operator):
 			self.num_cols=ps.RR_multiplier
 			self.num_rows=ps.RR_multiplier
 
-#		if "all" in ps.RR_who_region:
-#			for a in range(0,(self.tot_reg)):
-#				reg.append(a)
-#		elif "," in ps.RR_who_region:
-#			control=ps.RR_who_region.replace(',','')
-#			if (control.isdigit()):
-#				reg_temp=ps.RR_who_region.split(",")
-#				for a in range(0,len(reg_temp)):
-#					if int(reg_temp[a])<self.tot_reg:
-#						reg.append(int(reg_temp[a]))
-#					else:
-#						errorInsertRegions=True
-#			else:
-#				reg=""
-#		elif "-" in ps.RR_who_region:
-#			control=ps.RR_who_region.replace('-','')
-#			if (control.isdigit()):
-#				reg_temp=ps.RR_who_region.split("-")
-#				for a in range(int(reg_temp[0]),int(reg_temp[1])+1):
-#					if int(reg_temp[a])<self.tot_reg:
-#						reg.append(int(reg_temp[a]))
-#					else:
-#						errorInsertRegions=True
-#			else:
-#				reg=""
-#		elif ps.RR_who_region.isdigit():
-#			if int(ps.RR_who_region)<self.tot_reg:
-#				reg.append(int(ps.RR_who_region))
-#			else:
-#				errorInsertRegions=True
-#		else:
-#			reg=""
-#		
-#		if errorInsertRegions==True:
-#			reg=""
-#			self.report({"ERROR"}, "Error adding regions, check values")
-		
-#		print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-##		########################
-##		costruzione dell'oggetto in cui si inseriscono 
-##		tutti i dati di tutte le regioni.
-##		al momento del render si decide se renderizzare la singola regione
-##		in base agli stessi dati (una proprietà render=True/False).
-##		nell'oggetto ci saranno
-##			base del nome
-##			righexcolonne
-##			n riga
-##			n colonna
-##			frame
-##			render (se renderizzare la regione)
-##			valori della regione: minx, maxx, miny, maxy
-##		nel render o nella scrittura dello script si cicla in questo oggetto
-##		se render False si salta il render o si commenta la parte dello script
 		reg=self.prepareAllRegions(context)
-#		print(reg)
-#		print(self.allRegions[0].baseName)
-#		print(self.allRegions[0].__dir__())
-#		for el in self.allRegions:
-#			el.printAllProp()
-#			print(el.minx)
-#		print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-##		########################
-		
-#		reg=""
 		
 		if reg[1]==False:
 			self.arrayRegion=reg[0]
@@ -1406,23 +1069,6 @@ class RenderRegions(Operator):
 				tmpReg=Region()
 				tmpReg.index=ireg
 				
-	#			tmpReg.baseName=""
-				######################################################################
-				######################################################################
-	#			pos_row=int(ireg/self.num_cols)
-	#			pos_col=int( ( ireg - ( pos_row*self.num_cols) ) )
-	#			decCol=math.ceil(math.log(self.num_cols,10))
-	#			decRows=math.ceil(math.log(self.num_rows,10))
-	#			dec=max(decCol,decRows)
-	#			n_row = f'{pos_row:0{dec}d}'
-	#			n_col = f'{pos_col:0{dec}d}'
-	##			tempRegionName = str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_row + "_" + n_col
-
-#				#forse non corretto ma si ordinano bene le immagini
-#				self.region_name = self.outputImgName +"_"+tempRegionName# + rnd.file_extension
-#	#			#forse corretto ma non si ordinano bene le immagini
-#	#			self.region_name = self.outputImgName +"_"+str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_col + "_" + n_row# + rnd.file_extension
-
 				tempRegionName=self.getRegionName(context,ireg)
 	#			print("tempRegionName",tempRegionName)
 				tmpReg.outImg = self.outputImgName
@@ -1449,10 +1095,6 @@ class RenderRegions(Operator):
 					if ps.RR_method=="MULTIPLY":
 						resx=rnd.resolution_x*ps.RR_multiplier
 						resy=rnd.resolution_y*ps.RR_multiplier
-##						cropW=(resx/ps.RR_reg_rows)*ps.RR_multiplier
-##						cropH=(resy/ps.RR_reg_columns)*ps.RR_multiplier
-##						cropX=(ps.RR_mrg_w)*ps.RR_multiplier
-##						cropY=(ps.RR_mrg_h)*ps.RR_multiplier
 						relativeMargW=((1/resx)*ps.RR_mrg_w)#*ps.RR_multiplier
 						relativeMargH=((1/resy)*ps.RR_mrg_h)#*ps.RR_multiplier
 					
@@ -1489,19 +1131,9 @@ class RenderRegions(Operator):
 		
 		imgExtension=str.lower(rnd.image_settings.file_format)
 
-##nomecrop="crop.png"
-##cmdcrop="convert \"/media/dati_1tb/lavoro/blender_addon/renderregion/render05/test05RR__000_2x2_0_0.png\" -crop 100x50+0+0 "+nomecrop
-##subprocess.call(cmdcrop, shell=True)
-
-##nomeriga="riga.png"
-##cmd_str = "convert \( /media/dati_1tb/lavoro/blender_addon/renderregion/render05/test05RR__000_2x2_0_0.png /media/dati_1tb/lavoro/blender_addon/renderregion/render05/test05RR__000_2x2_0_1.png \) +append "+nomeriga
-##subprocess.call(cmd_str, shell=True)
-			
 		tmprow=0
 		tmparray=""
 		for el in self.allRegions:
-#			name=el.fullName
-			
 			outputFolderAbs=os.path.split( bpy.path.abspath(rnd.filepath) )[0]
 			imgPre=outputFolderAbs + os.path.sep + el.baseNameNoExtScript
 			cf=el.frame
@@ -1519,8 +1151,6 @@ class RenderRegions(Operator):
 			if ps.RR_method=="MULTIPLY":
 				cropW=resx#(resx/ps.RR_reg_rows)*ps.RR_multiplier
 				cropH=resy#(resy/ps.RR_reg_columns)*ps.RR_multiplier
-#				cropX=(ps.RR_mrg_w)*ps.RR_multiplier
-#				cropY=(ps.RR_mrg_h)*ps.RR_multiplier
 			
 			if(ncol==0):
 				cropX=0
@@ -1535,13 +1165,6 @@ class RenderRegions(Operator):
 				strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
 				tmparray=""
 				tmparray+="['"+name+"',"+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",'"+imgExtension+"',"+str(crop)+"],"
-		
-		
-#		print("bpy.path.basename(bpy.context.blend_data.filepath).split(\".\")[0]",bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0])
-#		print("el.fullName",el.fullName)
-#		print("el.baseName",el.baseName)
-#		print("el.baseNameNoExt",el.baseNameNoExt)
-#		print("el.baseNameNoExtScript",el.baseNameNoExtScript)
 		
 		tmparray = tmparray[:-1]
 		strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
@@ -1615,7 +1238,6 @@ class RenderRegions(Operator):
 #			print("rendering   -- "+str(self.rendering))
 #			print("RR_renderGo -- "+str(ps.RR_renderGo))
 #			print("render_ready-- "+str(self.render_ready))
-
 #			print("timer")
 			
 			if self.stop==True or ps.RR_renderGo==False:
@@ -1645,9 +1267,6 @@ class RenderRegions(Operator):
 						print("to render: "+self.region_name)
 
 						bpy.ops.render.render("INVOKE_DEFAULT", write_still=True)
-##########						bpy.ops.render.render(write_still=True)
-##########						print("bpy.ops.render.render: "+str(self.render_ready))
-#					elif self.setRender(context)==0:
 					elif setrnd==0:
 						self.remove_handlers(context)
 						self.finished=True
