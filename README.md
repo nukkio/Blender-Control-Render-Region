@@ -12,6 +12,7 @@ Useful in several cases, for example:
 - Render very large images.
 
 The regions are rendered top to bottom left to right, so the first one will be the top left and the last one will be the bottom right.
+
 ![divisioneRegioni](https://user-images.githubusercontent.com/8025606/221556263-5f167ce8-4864-4b61-a575-e4c86a7b89ac.png)
 
 You can add margins to regions to have overlapping areas: this way you can avoid problems due to denoise in cycles or effects in the compositor, for example "glare", when merging regions.
