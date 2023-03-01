@@ -17,7 +17,9 @@ The regions are rendered top to bottom left to right, so the first one will be t
 
 You can add margins to regions to have overlapping areas: this way you can avoid problems due to denoise in cycles or effects in the compositor, for example "glare", when merging regions.
 
-Tested with Cycles and Eevee.
+Tested with Cycles and Eevee with Blender 3.4.0, in Ubuntu 20.04 and Windows 11.
+
+To merge all images from script (created by this addon) [imagemagick](https://imagemagick.org/script/download.php) and [python 3](https://www.python.org/downloads/) must be installed.
 
 Blender version: 3.4.
 
@@ -83,18 +85,19 @@ Since the regions are calculated in a relative way and not in pixels, it is diff
 
 The button "Calculate Margins" finds the largest margin, starting from the value in "Max Margin" going backwards, which generates values with fewer decimals, safer.
 
-The found values are written in the "w" and "h" fields. Any other values are reported in the terminal. 
+The first best values found are written in the "w" and "h" fields. Any other values are reported in the terminal.
 
 If no safe values are found, 0 is returned. In this case you need to change the rendering size, or the number of regions, or increase the "Max Margin" value.
 
 You can choose the value of the margins without calculating it with the "Calculate margins" button, but rounding errors will be possible.
 
 ### Bash and Python script
-Selecting "Create bash and python script" the "render region" button will not launch the renders, but will write a shell script (**_Linux only_**) and a python script in the output folder.
+Selecting "Create bash and python script" the "render region" button will not launch the renders, but will write a script (.sh bash script in Linux and MacOS, .bat batch script in Windows), and a python script in the output folder.
 
 The bash script launches renders of the selected regions.
 In the script there are commands for all rendering; the regions not to be rendered are commented out.
-At the end of the script is the command to run the python script; is commented.
+At the end of the script is the command to run the python script; is commented. To launch the images cropping/appending procedure after rendering, uncomment the line with the command "python _name of blender project_.py".
+  In .bat it will be: "::python xxxx.py" and in .sh: "#python xxxx.py"; in both cases it must become: "python xxxx.py"
 
 The python script crops and merges all regions to get the final image.
 
@@ -113,9 +116,9 @@ The python script crops and merges all regions to get the final image.
 - **H**: value, in pixels, for the margin to add to the height of the region
 - **Max margin**: value from which the margin calculation starts, going backwards
 - **Calculate margins**: starts the margin calculation; if acceptable values are found, the best ones are written in the "W" and "H" fields, and are all displayed in the terminal
-- **Create bash and python script**: create, in output location, a bash script (>>_Linux only_<<) for launch the render process from command line, and create a python script with the procedure for create the final image using imagemagick (convert -crop and convert -+append); problem with "File Output" node in compositor: save with same name all regions, need add control like in internal mode, in progress...
+- **Create bash and python script**: create, in output location, a bash or batch script (.sh for Linux and MacOS, .bat for Windows) for launch the render process from command line, and create a python script with the procedure for create the final image using imagemagick (convert -crop and convert -+append); problem with "File Output" node in compositor: save with same name all regions, need add control like in internal mode, in progress...
 - **Render region**: render the regions indicated in "Regions to render" and save it in the output folder (Output properties > Output > Output path).
-If Compositor is activated and there are "File output"nodes, the file name will be changed according to the name assigned to the region (_experimental_).
+If Compositor is activated and there are "File output"nodes, the file name will be changed according to the name assigned to the region (_experimental - work in progress_).
 
 ## License
 
