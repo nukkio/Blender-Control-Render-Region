@@ -32,6 +32,7 @@ bl_info = {
 import bpy
 import os,subprocess
 import math
+import platform
 from bpy.types import Panel, Operator, Scene, PropertyGroup, WindowManager
 from bpy.props import (
 						BoolProperty,
@@ -44,6 +45,18 @@ from bpy.props import (
 					)
 from bpy.app.handlers import render_pre, render_post, render_cancel
 from bpy.app import driver_namespace
+#>>> import os
+#>>> os.name
+#'posix'
+#'nt'
+#'posix'
+#>>> import platform
+#>>> platform.system()
+#'Linux'
+#'Windows'
+#'Darwin'
+#>>> platform.release()
+#'2.6.22-15-generic'
 
 #handler_key = "DEV_FUNC_HKRR"
 
@@ -699,6 +712,175 @@ class RenderRegions(Operator):
 
 #		path render
 #		ps.RR_activeRendername=self.outputFolder + os.path.sep + self.region_name
+
+	
+		#platform.system()
+		#'Linux'
+		#'Windows'
+		#'Darwin'
+		platSyst=platform.system()
+		print("platSyst",platSyst)
+		scriptExt=".sh"
+#		platSyst="Windows"
+		# platSyst="Linux"
+		if (platSyst=="Windows"):
+			strScript=self.getScriptBatch(context, arObRegions)
+			scriptExt=".bat"
+		else:
+			strScript=self.getScriptShell(context, arObRegions)
+		
+		#nome del file blend
+		blendName= bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]
+		
+		####################
+##		##control file path, if outpur folder exist
+		####################
+#		
+		fileScript=self.outputFolderAbs+ os.path.sep+blendName+scriptExt
+			
+		with open(fileScript, 'w') as file:
+			file.write(strScript)
+			file.close()
+
+		ps.RR_msg1="created "+fileScript
+		##todo add timer to empty msg
+
+		#{'regionarea': {'minx': 0.5, 'miny': 0.0, 'maxx': 1.0, 'maxy': 0.5}, 'imageName': '//render/tmp_2x2_00000_00001.png', 'resolution': 0, 'resolutionPercent': 100, 'usecrop': True}
+		
+		return('FINISHED')
+		
+	def getScriptBatch(self,context,arObRegions):
+		scn = context.scene
+		rnd = context.scene.render
+		ps = scn.renderregionsettings
+		
+#		folder blender file
+		mainPath=bpy.path.abspath("//")
+
+#		path blender file
+		filepath = bpy.data.filepath
+		
+#		nome del file
+#		bpy.path.basename(bpy.context.blend_data.filepath)
+		fileName=bpy.path.basename(bpy.data.filepath)
+		
+#		executable path
+		blenderPath=bpy.app.binary_path
+		
+		strScript=""
+		strScript+="@echo off"+"\n"
+		strScript+=""+"\n"
+		strScript+="SETLOCAL"+"\n"
+		strScript+="set mainPath="+mainPath+"\n"
+#		strScript+="file=\""+filepath+"\""+"\n"
+		strScript+="set file=%mainPath%"+fileName+"\n"
+		strScript+="set blenderPath="+blenderPath+"\n"
+		strScript+=":: set cyclesSamples="+str(scn.cycles.samples)+"\n"
+		strScript+="set pythonName=renderscriptRRegion"+"\n"
+		strScript+="set pyfile=%mainPath%%pythonName%.py"+"\n"
+
+		strScript+="\n"
+		
+		# strScript+=""+"\n"
+		# strScript+=""+"\n"
+
+		tmprow=0
+		for ireg in arObRegions:
+			comm=""
+			if(ireg.render==False):
+				comm="::"
+			
+			strScript+=comm+"set tmpImgName=\""+ireg.imageName+"\""+"\n"
+			strScript+=comm+"set datarender=%TIME% "+"\n"
+			strScript+=comm+"CALL :startrender "
+			strScript+=str(ireg.regionarea.minx)+", "
+			strScript+=str(ireg.regionarea.miny)+", "
+			strScript+=str(ireg.regionarea.maxx)+", "
+			strScript+=str(ireg.regionarea.maxy)+", "
+			strScript+="%tmpImgName%, "
+			strScript+=str(ireg.resolution)+", "
+			strScript+=str(ireg.resolutionPercent)+", "
+			strScript+=str(ireg.usecrop)+", "
+			strScript+=str(ireg.currframe)+" "
+			strScript+="\n"
+			strScript+=comm+"CALL :msg \"ok "+str(ireg.nrow)+" "+str(ireg.ncol)+"\""+"\n"
+			strScript+="\n"
+		
+		pyJoin=self.writeJoinPython(context)
+		
+		strScript+="\n"
+		strScript+="::crop and join image"+"\n"
+		strScript+="::python "+pyJoin+"\n"
+		
+		strScript+="\n"
+		strScript+="echo \"done\"\n"
+		strScript+="EXIT /B %ERRORLEVEL% \n"
+		strScript+="\n"
+
+		strScript+=":msg"+"\n"
+		strScript+="SETLOCAL"+"\n"
+		strScript+="set msg=%~1"+"\n"
+		strScript+="set datamsg=%TIME%"+"\n"
+		strScript+="::telegram-send \"%datarender% - %datamsg% - render %msg%\""+"\n"
+		strScript+="echo \"%datarender% - %datamsg% - render %msg%\""+"\n"
+		strScript+="ENDLOCAL"+"\n"
+		strScript+="EXIT /B 0"+"\n"
+		strScript+="\n"
+		
+		strScript+=":startrender"+"\n"
+		strScript+="SETLOCAL"+"\n"
+		strScript+="set minx=%~1"+"\n"
+		strScript+="set miny=%~2"+"\n"
+		strScript+="set maxx=%~3"+"\n"
+		strScript+="set maxy=%~4"+"\n"
+		strScript+="set imageName=%~5"+"\n"
+		strScript+="set resolution=%~6"+"\n"
+		strScript+="set resolutionPercent=%~7"+"\n"
+		strScript+="set usecrop=%~8"+"\n"
+		strScript+="set curframe=%~9"+"\n"
+		strScript+="IF EXIST \"%pyfile%\" ("+"\n"
+		strScript+="    DEL \"%pyfile%\""+"\n"
+		strScript+=")"+"\n"
+		# strScript+="echo \"%pyfile%\""+"\n"
+		# strScript+="copy /y NUL %pyfile% >NUL"+"\n"
+		strScript+="echo import bpy > %pyfile%"+"\n"
+		strScript+="echo scn = bpy.context.scene >> %pyfile%"+"\n"
+		strScript+="echo rnd = scn.render >> %pyfile%"+"\n"
+		strScript+="echo rnd.border_min_x=%minx% >> %pyfile%"+"\n"
+		strScript+="echo rnd.border_min_y=%miny% >> %pyfile%"+"\n"
+		strScript+="echo rnd.border_max_x=%maxx% >> %pyfile%"+"\n"
+		strScript+="echo rnd.border_max_y=%maxy% >> %pyfile%"+"\n"
+		# strScript+="echo rnd.filepath=\"%imageName%\" >> %pyfile%"+"\n"
+		strScript+="echo rnd.resolution_percentage=%resolutionPercent% >> %pyfile%"+"\n"
+		strScript+="echo rnd.use_crop_to_border = %usecrop% >> %pyfile%"+"\n"
+		strScript+="echo scn.frame_set(%curframe%) >> %pyfile%"+"\n"
+		strScript+="echo scn.frame_current = %curframe% >> %pyfile%"+"\n"
+		strScript+="echo scn.render.use_overwrite=True >> %pyfile%"+"\n"
+		strScript+="::echo scn.cycles.samples=%cyclesSamples% >> %pyfile%"+"\n"
+		strScript+="CALL \"%blenderPath%\" -b \"%file%\" -x 1 -o \"%imageName%\" -P \"%pyfile%\" -f %curframe%"+"\n"
+		strScript+="ENDLOCAL"+"\n"
+		strScript+="EXIT /B 0"+"\n"
+
+		strScript+="\n"
+		return strScript
+
+	def getScriptShell(self,context,arObRegions):
+		scn = context.scene
+		rnd = context.scene.render
+		ps = scn.renderregionsettings
+		
+#		folder blender file
+		mainPath=bpy.path.abspath("//")
+
+#		path blender file
+		filepath = bpy.data.filepath
+		
+#		nome del file
+#		bpy.path.basename(bpy.context.blend_data.filepath)
+		fileName=bpy.path.basename(bpy.data.filepath)
+		
+#		executable path
+		blenderPath=bpy.app.binary_path
 		
 		strScript=""
 
@@ -722,13 +904,14 @@ class RenderRegions(Operator):
 		strScript+="echo \"$datarender - $datamsg - render $1\""+"\n"
 		strScript+="}"+"\n"
 		
-		strScript+="renderregion()"+"\n"
-		strScript+="{"+"\n"
-		strScript+="pyname=$1"+"\n"
-		strScript+="imageName=$2"+"\n"
-		strScript+="frame=$3"+"\n"
-		strScript+="$blenderPath -b \"$file\" -x 1 -o \"$imageName\" -P $pyname -f $frame"+"\n"
-		strScript+="}"+"\n"
+#		strScript+="renderregion()"+"\n"
+#		strScript+="{"+"\n"
+#		strScript+="pyname=$1"+"\n"
+#		strScript+="imageName=$2"+"\n"
+#		strScript+="frame=$3"+"\n"
+#		strScript+="$blenderPath -b \"$file\" -x 1 -o \"$imageName\" -P $pyname -f $frame"+"\n"
+#		strScript+="}"+"\n"
+		
 		strScript+="function startrender()"+"\n"
 		strScript+="{"+"\n"
 		strScript+="minx=$1"+"\n"
@@ -765,16 +948,21 @@ class RenderRegions(Operator):
 		strScript+="echo \"scn.render.use_overwrite=True\" >> $pyfile"+"\n"
 		strScript+="#echo \"scn.cycles.samples=\"$cyclesSamples >> $pyfile"+"\n"
 		strScript+="echo \"\" >> $pyfile"+"\n"
-		strScript+="renderregion $pyfile $imageName $curframe"+"\n"
+#		strScript+="renderregion $pyfile $imageName $curframe"+"\n"
+		strScript+="$blenderPath -b \"$file\" -x 1 -o \"$imageName\" -P $pyfile -f $curframe"+"\n"
+
+
+	
+		
 		strScript+="}"+"\n"
 		strScript+="pythonName=\"renderscriptRRegion\""+"\n"
 		strScript+="pyfile=$mainPath$pythonName\".py\""+"\n"
 		strScript+=""+"\n"
 		strScript+=""+"\n"
-		if (ps.RR_who_region=="all"):
-			strScript+="arrayImgNamesPerRow=()"+"\n"
-			strScript+="strRowNames=()"+"\n"
-			strScript+="tmpImgNamesPerRow=()"+"\n"
+#		if (ps.RR_who_region=="all"):
+#			strScript+="arrayImgNamesPerRow=()"+"\n"
+#			strScript+="strRowNames=()"+"\n"
+#			strScript+="tmpImgNamesPerRow=()"+"\n"
 		strScript+=""+"\n"
 		tmprow=0
 #		for ireg in range(0,len(arObRegions)):
@@ -790,20 +978,20 @@ class RenderRegions(Operator):
 ####			quando si registrano i nomi delle immagini
 ####			per costruire poi le righe e l'immagine finale
 ####			si deve sostituire ### col frame
-			imgPre=ireg.imageName
-			cf=ireg.currframe
-			new_nframe = f'{cf:0{3}d}'
-			imgPost = imgPre.replace("###", str(new_nframe))
-			strScript+=comm+"tmpImgNameFrm=\""+imgPost+"\""+"\n"
-			
-			if (ps.RR_who_region=="all"):
-				if (tmprow!=ireg.nrow):
-					strScript+="arrayImgNamesPerRow+=(\"$tmpImgNamesPerRow\")"+"\n"
-					strScript+="tmpImgNamesPerRow=()"+"\n"
-					strScript+="tmpImgNamesPerRow+=\"$tmpImgNameFrm\"\"."+imgExtension+" \"\n"
-					tmprow=ireg.nrow
-				else:
-					strScript+="tmpImgNamesPerRow+=\"$tmpImgNameFrm\"\"."+imgExtension+" \"\n"
+#			imgPre=ireg.imageName
+#			cf=ireg.currframe
+#			new_nframe = f'{cf:0{3}d}'
+#			imgPost = imgPre.replace("###", str(new_nframe))
+#			strScript+=comm+"tmpImgNameFrm=\""+imgPost+"\""+"\n"
+#			
+#			if (ps.RR_who_region=="all"):
+#				if (tmprow!=ireg.nrow):
+#					strScript+="arrayImgNamesPerRow+=(\"$tmpImgNamesPerRow\")"+"\n"
+#					strScript+="tmpImgNamesPerRow=()"+"\n"
+#					strScript+="tmpImgNamesPerRow+=\"$tmpImgNameFrm\"\"."+imgExtension+" \"\n"
+#					tmprow=ireg.nrow
+#				else:
+#					strScript+="tmpImgNamesPerRow+=\"$tmpImgNameFrm\"\"."+imgExtension+" \"\n"
 			
 			strScript+=comm+"datarender=$(date +\"%Y%m%d_%H-%M\") "+"\n"
 			strScript+=comm+"startrender "
@@ -824,9 +1012,9 @@ class RenderRegions(Operator):
 			strScript+=comm+"msg \"ok "+str(ireg.nrow)+" "+str(ireg.ncol)+"\""+"\n"
 			strScript+="\n"
 		
-		if (ps.RR_who_region=="all"):
-				strScript+="arrayImgNamesPerRow+=(\"$tmpImgNamesPerRow\")"+"\n"
-				strScript+="tmpImgNamesPerRow=()"+"\n"
+#		if (ps.RR_who_region=="all"):
+#				strScript+="arrayImgNamesPerRow+=(\"$tmpImgNamesPerRow\")"+"\n"
+#				strScript+="tmpImgNamesPerRow=()"+"\n"
 		
 		pyJoin=self.writeJoinPython(context)
 		
@@ -837,26 +1025,7 @@ class RenderRegions(Operator):
 		strScript+="\n"
 		strScript+="echo \"done\"\n"
 		strScript+="\n"
-
-		#nome del file blend
-		blendName= bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]
-		
-		####################
-##		##control file path, if outpur folder exist
-		####################
-#		
-		fileScript=self.outputFolderAbs+ os.path.sep+blendName+".sh"
-		
-		with open(fileScript, 'w') as file:
-			file.write(strScript)
-			file.close()
-
-		ps.RR_msg1="created "+fileScript
-		##todo add timer to empty msg
-
-		#{'regionarea': {'minx': 0.5, 'miny': 0.0, 'maxx': 1.0, 'maxy': 0.5}, 'imageName': '//render/tmp_2x2_00000_00001.png', 'resolution': 0, 'resolutionPercent': 100, 'usecrop': True}
-		
-		return('FINISHED')
+		return strScript
 	
 	def getRegionName(self,context,index):
 		scn = context.scene
@@ -1162,13 +1331,13 @@ class RenderRegions(Operator):
 				cropY=0
 			
 			if tmprow==nrow:
-				tmparray+="['"+name+"',"+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",'"+imgExtension+"',"+str(crop)+"],"
+				tmparray+="[r\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
 			else:
 				tmprow=nrow
 				tmparray = tmparray[:-1]
 				strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
 				tmparray=""
-				tmparray+="['"+name+"',"+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",'"+imgExtension+"',"+str(crop)+"],"
+				tmparray+="[\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
 		
 		tmparray = tmparray[:-1]
 		strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
@@ -1182,7 +1351,7 @@ class RenderRegions(Operator):
 		strScriptPy+="tmprownm=\"\""+"\n"
 		strScriptPy+="strImgRow=\"\""+"\n"
 		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"."+imgExtension
-		strScriptPy+="finalImg=\""+finalImg+"\""+"\n"
+		strScriptPy+="finalImg=r\""+finalImg+"\""+"\n"
 		strScriptPy+="\n"
 		strScriptPy+="for arRow in arrayImg:"+"\n"
 		strScriptPy+="	strImgCropped=\"\""+"\n"
