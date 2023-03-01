@@ -17,7 +17,7 @@ The regions are rendered top to bottom left to right, so the first one will be t
 
 You can add margins to regions to have overlapping areas: this way you can avoid problems due to denoise in cycles or effects in the compositor, for example "glare", when merging regions.
 
-Tested with Cycles and Eevee with Blender 3.4.0, in Ubuntu 20.04 and Windows 11.
+Tested with Cycles and Eevee with Blender 3.4.0, in Ubuntu 20.04 and Windows 10.
 
 To merge all images from script (created by this addon) [imagemagick](https://imagemagick.org/script/download.php) and [python 3](https://www.python.org/downloads/) must be installed.
 
