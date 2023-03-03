@@ -690,6 +690,7 @@ class RenderRegions(Operator):
 			tmpOb.nrow=tempRegionData.nrow
 			tmpOb.ncol=tempRegionData.ncol
 			tmpOb.render=tempRegionData.render
+			tmpOb.regionName=tempRegionData.regionName
 			
 			current_frame = scn.frame_current
 			tmpOb.currframe=current_frame
@@ -801,7 +802,8 @@ class RenderRegions(Operator):
 			strScript+=str(ireg.resolution)+", "
 			strScript+=str(ireg.resolutionPercent)+", "
 			strScript+=str(ireg.usecrop)+", "
-			strScript+=str(ireg.currframe)+" "
+			strScript+=str(ireg.currframe)+", "
+			strScript+="\""+str(ireg.regionName)+"\" "
 			strScript+="\n"
 			strScript+=comm+"CALL :msg \"ok "+str(ireg.nrow)+" "+str(ireg.ncol)+"\""+"\n"
 			strScript+="\n"
@@ -830,14 +832,16 @@ class RenderRegions(Operator):
 		strScript+=":startrender"+"\n"
 		strScript+="SETLOCAL"+"\n"
 		strScript+="set minx=%~1"+"\n"
-		strScript+="set miny=%~2"+"\n"
-		strScript+="set maxx=%~3"+"\n"
-		strScript+="set maxy=%~4"+"\n"
-		strScript+="set imageName=%~5"+"\n"
-		strScript+="set resolution=%~6"+"\n"
-		strScript+="set resolutionPercent=%~7"+"\n"
-		strScript+="set usecrop=%~8"+"\n"
-		strScript+="set curframe=%~9"+"\n"
+		strScript+="SHIFT"+"\n"
+		strScript+="set miny=%~1"+"\n"
+		strScript+="set maxx=%~2"+"\n"
+		strScript+="set maxy=%~3"+"\n"
+		strScript+="set imageName=%~4"+"\n"
+		strScript+="set resolution=%~5"+"\n"
+		strScript+="set resolutionPercent=%~6"+"\n"
+		strScript+="set usecrop=%~7"+"\n"
+		strScript+="set curframe=%~8"+"\n"
+		strScript+="set foPath=%~9"+"\n"
 		strScript+="IF EXIST \"%pyfile%\" ("+"\n"
 		strScript+="    DEL \"%pyfile%\""+"\n"
 		strScript+=")"+"\n"
@@ -857,6 +861,14 @@ class RenderRegions(Operator):
 		strScript+="echo scn.frame_current = %curframe% >> %pyfile%"+"\n"
 		strScript+="echo scn.render.use_overwrite=True >> %pyfile%"+"\n"
 		strScript+="::echo scn.cycles.samples=%cyclesSamples% >> %pyfile%"+"\n"
+		
+		strScript+="echo if(scn.node_tree!=None): >> %pyfile%"+"\n"
+		strScript+="echo     for xfo in scn.node_tree.nodes: >> %pyfile%"+"\n"
+		strScript+="echo         if (xfo.type=='OUTPUT_FILE'): >> %pyfile%"+"\n"
+		strScript+="echo             tempslotcount=len(xfo.file_slots) >> %pyfile%"+"\n"
+		strScript+="echo             for xSlot in range(tempslotcount): >> %pyfile%"+"\n"
+		strScript+="echo                 xfo.file_slots[xSlot].path=xfo.file_slots[xSlot].path + '%foPath%' + '_' >> %pyfile%"+"\n"
+		
 		strScript+="CALL \"%blenderPath%\" -b \"%file%\" -x 1 -o \"%imageName%\" -P \"%pyfile%\" -f %curframe%"+"\n"
 		strScript+="ENDLOCAL"+"\n"
 		strScript+="EXIT /B 0"+"\n"
@@ -923,6 +935,7 @@ class RenderRegions(Operator):
 		strScript+="resolutionPercent=$7"+"\n"
 		strScript+="usecrop=$8"+"\n"
 		strScript+="curframe=$9"+"\n"
+		strScript+="foPath=${10}"+"\n"
 		strScript+="if test -f \"$pyfile\"; then"+"\n"
 		strScript+="    echo \"$pyfile exists.\""+"\n"
 		strScript+="    rm $pyfile"+"\n"
@@ -947,6 +960,14 @@ class RenderRegions(Operator):
 		strScript+="echo \"scn.frame_current = \"$curframe >> $pyfile"+"\n"
 		strScript+="echo \"scn.render.use_overwrite=True\" >> $pyfile"+"\n"
 		strScript+="#echo \"scn.cycles.samples=\"$cyclesSamples >> $pyfile"+"\n"
+		
+		strScript+="echo \"if(scn.node_tree!=None):\" >> $pyfile"+"\n"
+		strScript+="echo \"    for xfo in scn.node_tree.nodes:\" >> $pyfile"+"\n"
+		strScript+="echo \"        if (xfo.type=='OUTPUT_FILE'):\" >> $pyfile"+"\n"
+		strScript+="echo \"            tempslotcount=len(xfo.file_slots)\" >> $pyfile"+"\n"
+		strScript+="echo \"            for xSlot in range(tempslotcount):\" >> $pyfile"+"\n"
+		strScript+="echo \"                xfo.file_slots[xSlot].path=xfo.file_slots[xSlot].path + '\"$foPath\"' + '_'\" >> $pyfile"+"\n"
+		
 		strScript+="echo \"\" >> $pyfile"+"\n"
 #		strScript+="renderregion $pyfile $imageName $curframe"+"\n"
 		strScript+="$blenderPath -b \"$file\" -x 1 -o \"$imageName\" -P $pyfile -f $curframe"+"\n"
@@ -1006,6 +1027,7 @@ class RenderRegions(Operator):
 			strScript+=str(ireg.resolutionPercent)+" "
 			strScript+=str(ireg.usecrop)+" "
 			strScript+=str(ireg.currframe)+" "
+			strScript+="\""+str(ireg.regionName)+"\" "
 			
 			
 			strScript+="\n"
@@ -1071,6 +1093,20 @@ class RenderRegions(Operator):
 				rnd.filepath=ps.RR_activeRendername
 				ps.RR_msg1="render "+str(ps.RR_cntrnd)+"/"+str(ps.RR_maxrnd)
 #				ps.RR_msg2="rendering :"+ps.RR_activeRendername
+
+
+				#ciclo per cambiare i path nei fileoutput
+				#alla fine del render dovrebbero essere rimessi a posto
+#				print("****----****----****----****----")
+				for x in self.saveFileOutputs:
+					tempNodeFO=scn.node_tree.nodes[str(x[0])]
+					tempslotcount=len(tempNodeFO.file_slots)
+	#				print("cambio fo= " + str(tempNodeFO) + " - slots=" + str(tempslotcount))
+					for xSlot in range(tempslotcount):
+						tempNodeFO.file_slots[xSlot].path=str(x[xSlot+1]) + tempRegionData.regionName + "_"
+				#####################
+
+
 				
 				if (ps.RR_dim_region==True):
 					rnd.resolution_percentage=ps.RR_multiplier*100
@@ -1105,7 +1141,12 @@ class RenderRegions(Operator):
 		file_name=os.path.splitext( os.path.split(bpy.data.filepath)[1])[0]
 		self.outputFolderAbs=os.path.split( bpy.path.abspath(rnd.filepath) )[0]
 		self.outputFolder=os.path.split( bpy.path.relpath(rnd.filepath) )[0]
-		self.outputImgName=os.path.splitext(os.path.split( bpy.path.relpath(rnd.filepath) )[1])[0]
+		#ok linux##self.outputImgName=os.path.splitext(os.path.split( bpy.path.relpath(rnd.filepath) )[1])[0]
+		self.outputImgName=os.path.splitext(os.path.split( bpy.path.abspath(rnd.filepath) )[1])[0]
+		# print("----")
+		# print(os.path.splitext(os.path.split( bpy.path.relpath(rnd.filepath) )[1]))
+		# print(os.path.splitext(os.path.split( bpy.path.abspath(rnd.filepath) )[1]))
+		# print("----")
 		ps.RR_oldoutputfilepath=rnd.filepath
 		ps.RR_oldPerc=rnd.resolution_percentage
 #		print(self.outputFolderAbs)
@@ -1245,10 +1286,17 @@ class RenderRegions(Operator):
 				tempRegionName=self.getRegionName(context,ireg)
 	#			print("tempRegionName",tempRegionName)
 				tmpReg.outImg = self.outputImgName
+				tmpReg.regionName = tempRegionName[0]
 				tmpReg.baseName = self.outputImgName +"_"+tempRegionName[0] + rnd.file_extension
 				tmpReg.baseNameNoExt = self.outputImgName +"_"+tempRegionName[0]
 				tmpReg.baseNameNoExtScript = self.outputImgName +"_"+tempRegionName[3]
 				tmpReg.fullName=self.outputFolder + os.path.sep + tmpReg.baseName
+				
+				# print("tmpReg.regionName",tmpReg.regionName)
+				# print("tmpReg.baseName",tmpReg.baseName)
+				# print("tmpReg.baseNameNoExt",tmpReg.baseNameNoExt)
+				# print("tmpReg.baseNameNoExtScript",tmpReg.baseNameNoExtScript)
+				# print("tmpReg.fullName",tmpReg.fullName)
 				
 				tmpReg.nrow=int(tempRegionName[1])
 				tmpReg.ncol=int(tempRegionName[2])
@@ -1276,7 +1324,7 @@ class RenderRegions(Operator):
 					tmpReg.miny=round(min(max((tmpReg.miny+relativeMargH),0),1),8)
 					tmpReg.maxy=round(min(max((tmpReg.maxy-relativeMargH),0),1),8)
 				
-				print("tmpReg.maxx",tmpReg.maxx)
+#				print("tmpReg.maxx",tmpReg.maxx)
 				######################################################################
 				######################################################################
 				tmpReg.rows=ps.RR_reg_rows
@@ -1337,7 +1385,7 @@ class RenderRegions(Operator):
 				tmparray = tmparray[:-1]
 				strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
 				tmparray=""
-				tmparray+="[\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
+				tmparray+="[r\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
 		
 		tmparray = tmparray[:-1]
 		strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
@@ -1366,7 +1414,7 @@ class RenderRegions(Operator):
 		strScriptPy+="			col=str(img[6])"+"\n"
 		strScriptPy+="			ext=img[7]"+"\n"
 		strScriptPy+="			tmpnmcrop=nmcrop+row+\"-\"+col+\".\"+ext"+"\n"
-		strScriptPy+="			cmdcrop=\"convert '\"+name+\"' -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" \"+tmpnmcrop"+"\n"
+		strScriptPy+="			cmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" \"+tmpnmcrop"+"\n"
 		strScriptPy+="			print(\"crop \"+row+\"-\"+col)"+"\n"
 		strScriptPy+="			subprocess.call(cmdcrop, shell=True)"+"\n"
 		strScriptPy+="			img[0]=tmpnmcrop"+"\n"
@@ -1377,12 +1425,12 @@ class RenderRegions(Operator):
 		strScriptPy+="	"+"\n"
 		strScriptPy+="	tmprownm=str(nmrow)+str(nrow)+\".\"+str(ext)"+"\n"
 		strScriptPy+="	strImgRow+=tmprownm+\" \""+"\n"
-		strScriptPy+="	cmdAppRow = \"convert \( \"+strImgCropped+\" \) +append \"+tmprownm"+"\n"
+		strScriptPy+="	cmdAppRow = \"convert  \"+strImgCropped+\"  +append \"+tmprownm"+"\n"
 		strScriptPy+="	print(\"append row \"+str(nrow))"+"\n"
 		strScriptPy+="	subprocess.call(cmdAppRow, shell=True)"+"\n"
 		strScriptPy+="	nrow=nrow+1"+"\n"
 		strScriptPy+="	"+"\n"
-		strScriptPy+="cmdAppAll = \"convert \( \"+strImgRow+\" \) -append \"+finalImg"+"\n"
+		strScriptPy+="cmdAppAll = \"convert  \"+strImgRow+\"  -append \"+finalImg"+"\n"
 		strScriptPy+="print(\"append all\")"+"\n"
 		strScriptPy+="subprocess.call(cmdAppAll, shell=True)"+"\n"
 		strScriptPy+="\n"
@@ -1438,7 +1486,6 @@ class RenderRegions(Operator):
 					if setrnd==1:
 						self.render_ready=True
 						print("to render: "+self.region_name)
-
 						bpy.ops.render.render("INVOKE_DEFAULT", write_still=True)
 					elif setrnd==0:
 						self.remove_handlers(context)
@@ -1452,6 +1499,22 @@ class RenderRegions(Operator):
 						return {"FINISHED"}
 					else:
 						print("not to render")
+						tempRegionData=[]
+#						print("loop from "+str(ps.RR_cntrnd-1)+ " to "+str(len(self.allRegions)-1))
+						for cnt in range((ps.RR_cntrnd-1), (len(self.allRegions)-1)):
+							tempRegionData=self.allRegions[cnt]
+							if (tempRegionData.render==True):
+#								print("found region to render: "+str(cnt))
+								ps.RR_cntrnd=cnt
+								break
+						else:
+							ps.RR_cntrnd=(len(self.allRegions))
+							print("no other render to do - "+str(ps.RR_cntrnd))
+###						#
+
+###						#se si
+###							#si incrementa il contatore e si controlla anche il successivo ecc...
+###						#per evitare di aspettare troppo se ci sono molte regioni sa non fare
 				else:
 					print("to render 2: "+self.region_name)
 					bpy.ops.render.render("INVOKE_DEFAULT", write_still=True)
@@ -1462,6 +1525,7 @@ class RenderRegions(Operator):
 class Region:
 	index=-1
 	outImg=""
+	regionName=""
 	baseName=""
 	baseNameNoExt=""
 	baseNameNoExtScript=""
