@@ -116,9 +116,9 @@ The python script crops and merges all regions to get the final image.
 - **H**: value, in pixels, for the margin to add to the height of the region
 - **Max margin**: value from which the margin calculation starts, going backwards
 - **Calculate margins**: starts the margin calculation; if acceptable values are found, the best ones are written in the "W" and "H" fields, and are all displayed in the terminal
-- **Create bash and python script**: create, in output location, a bash or batch script (.sh for Linux and MacOS, .bat for Windows) for launch the render process from command line, and create a python script with the procedure for create the final image using imagemagick (convert -crop and convert -+append); problem with "File Output" node in compositor: save with same name all regions, need add control like in internal mode, in progress...
+- **Create bash and python script**: create, in output location, a bash or batch script (.sh for Linux and MacOS, .bat for Windows) for launch the render process from command line, and create a python script with the procedure for create the final image using imagemagick (convert -crop and convert -+append)
 - **Render region**: render the regions indicated in "Regions to render" and save it in the output folder (Output properties > Output > Output path).
-If Compositor is activated and there are "File output"nodes, the file name will be changed according to the name assigned to the region (_experimental - work in progress_).
+If Compositor is activated and there are "File output"nodes, the file name will be changed according to the name assigned to the region.
 
 ## License
 
