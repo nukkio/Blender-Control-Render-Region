@@ -1,6 +1,6 @@
 # Blender Addon: Control Render Region
 
-![ScreenshotRR](https://user-images.githubusercontent.com/8025606/221555302-96977e7a-5e89-400f-ae30-2c8b506fe4f7.png)
+![ScreenshotRenderRegion_20230319_16-35](https://user-images.githubusercontent.com/8025606/226186936-127534d7-b0cb-4480-8894-a08a85448027.png)
 
 A Blender Addon to manage renders with [Render Region](https://docs.blender.org/manual/en/latest/editors/3dview/navigate/regions.html#render-region). 
 This addon divides the render of a project into regions and allows you to render all or only some of them.
@@ -100,6 +100,10 @@ At the end of the script is the command to run the python script; is commented. 
   In .bat it will be: "::python xxxx.py" and in .sh: "#python xxxx.py"; in both cases it must become: "python xxxx.py"
 
 The python script crops and merges all regions to get the final image.
+
+### Create Reference Image
+The "Create Reference Image" button generates a reference image (using imagemagick); region borders are drawn with red lines, and margins (or overlapping areas) with semi-transparent areas. All regions are numbered.
+![ScreenshotRR_refImg_20230319_16-45](https://user-images.githubusercontent.com/8025606/226187571-7f40a382-6988-4f9f-b767-d7f149ee9429.png)
 
 ### Values
 - **Method**: Divide or Multiply: the method used for create region
