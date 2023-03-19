@@ -185,10 +185,10 @@ class RenderRegionSettings(PropertyGroup):
 		description = "Regions to render: all= render all regions; x,y,z= render the region number x, y and z; x-z= render the region from number x to z",
 		default = "all")
 
-	RR_save_region:BoolProperty(
-		name = "Join and save",
-		description = "Join and save the regions",
-		default = False)
+#	RR_save_region:BoolProperty(
+#		name = "Join and save",
+#		description = "Join and save the regions",
+#		default = False)
 	
 	RR_activeRendername:StringProperty(
 		name = "RR_activeRendername",
@@ -322,8 +322,8 @@ class RENDER_PT_Region(Panel):
 		rowList.append(row12)
 		row13 =  box.row()
 		rowList.append(row13)
-#		row14 =  box.row()
-#		rowList.append(row14)
+		row14 =  box.row()
+		rowList.append(row14)
 
 		col = layout.column(align=True)
 		
@@ -384,6 +384,8 @@ class RENDER_PT_Region(Panel):
 		rn+=1
 		rowList[rn].operator("render.stop", text="Stop render", icon="CANCEL")
 		rowList[rn].enabled = ps.RR_renderGo==True
+		rn+=1
+		rowList[rn].operator("reference.create", text="Create reference image", icon="IMAGE_PLANE")
 		rn+=1
 		rowList[rn].label(text=ps.RR_msg1)
 		rn+=1
@@ -464,6 +466,103 @@ class RenderStop(Operator):
 #		self.remove_handlers(context)
 		print("----------------------STOPPED - CANCELLED")
 		return{'CANCELLED'}
+
+class CreateReferenceImage(Operator):
+	bl_idname = 'reference.create'
+	bl_label = "Create reference image"
+	bl_description = "Create a reference image with all regions numbered and margins"
+	bl_options = {'REGISTER', 'UNDO'}
+	bl_space_type = 'PROPERTIES'
+	bl_region_type = 'WINDOW'
+	bl_context = "output"
+	
+	def execute(self, context):
+		scn = context.scene
+		rnd = context.scene.render
+		ps = scn.renderregionsettings
+
+		resx=rnd.resolution_x
+		resy=rnd.resolution_y
+
+		nregionsw=0
+		nregionsh=0
+		if ps.RR_method=="DIVIDE":
+			nregionsw=ps.RR_reg_rows
+			nregionsh=ps.RR_reg_columns
+		else:
+			nregionsw=ps.RR_multiplier
+			nregionsh=ps.RR_multiplier
+			resx=rnd.resolution_x*ps.RR_multiplier
+			resy=rnd.resolution_y*ps.RR_multiplier
+#		print("resx",str(resx))
+#		print("resy",str(resy))
+#		print("nregionsw",str(nregionsw))
+#		print("nregionsh",str(nregionsh))
+#		print("ps.RR_mrg_w",str(ps.RR_mrg_w))
+#		print("ps.RR_mrg_h",str(ps.RR_mrg_h))
+		
+#		mainPath=bpy.path.abspath("//")
+#		self.outputFolderAbs + os.path.sep + self.region_name
+		
+		imagePath=self.drawRef(resx,resy,nregionsw,nregionsh,ps.RR_mrg_w,ps.RR_mrg_h,bpy.path.abspath("//"))
+		cam = bpy.context.scene.camera
+
+		for bgi in cam.data.background_images:
+			print(bgi.image.name)
+			if bgi.image and bgi.image.name.startswith("rrref"):
+				img=bpy.data.images[bgi.image.name]
+				cam.data.background_images.remove(bgi)
+				img.user_clear()
+				if not img.users: 
+				    bpy.data.images.remove(img)
+		cam.data.background_images.update()
+
+		#cam = bpy.data.scenes["Scene"].camera
+		img = bpy.data.images.load(imagePath)
+		cam.data.show_background_images = True
+		bg = cam.data.background_images.new()
+		bg.image = img
+		cam.data.background_images[0].display_depth='FRONT'
+		cam.data.background_images.update()
+		
+		return{"FINISHED"}
+	
+	def drawRef(self,ww,hh,rows, cols, mrgw=0, mrgh=0,path="//"):
+		name=path+"rrref_"+str(ww)+"x"+str(hh)+"-"+str(rows)+"x"+str(cols)+".png"
+		drawCmnd=""
+		dh=round(hh/rows)
+		dw=round(ww/cols)
+		tmp=0
+		strokeSetLine=" -stroke red -strokewidth 4"
+		strokeSetMarg=" -stroke '#ff000040' -strokewidth "
+		for n in range(rows-1):
+			tmp+=dh
+			drawCmnd=drawCmnd+strokeSetLine+" -draw \"path 'M 0,"+str(tmp)+" l "+str(ww)+",0'\""
+			if(mrgh!=0):
+				drawCmnd=drawCmnd+strokeSetMarg+str(mrgh*2)+" -draw \"path 'M 0,"+str(tmp)+" l "+str(ww)+",0'\""
+		tmp=0
+		for n in range(cols-1):
+			tmp+=dw
+			drawCmnd+=strokeSetLine+" -draw \"path 'M "+str(tmp)+",0 l 0,"+str(hh)+"'\""
+			if(mrgw!=0):
+				drawCmnd+=strokeSetMarg+str(mrgw*2)+" -draw \"path 'M "+str(tmp)+",0 l 0,"+str(hh)+"'\""
+		dh3=round(dh/3)
+		dw3=round(dw/3)
+		tmph=dh3*2
+		tmpw=dw3
+		cnt=0
+		drawCmnd+=" -pointsize "+str(min(dh3,dw3))+" -fill red -stroke none"
+		for nr in range(rows):
+			tmpw=dw3
+			for nc in range(cols):
+				drawCmnd+=" -draw 'text "+str(tmpw)+","+str(tmph)+" \""+str(cnt)+"\"'"
+				cnt=cnt+1
+				tmpw+=dw
+			tmph+=dh
+		cmdDraw="convert -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
+	#	print(cmdDraw)
+		subprocess.call(cmdDraw, shell=True)
+		return name
 
 class MarginCalculate(Operator):
 	bl_idname = 'margin.calculate'
@@ -1579,6 +1678,7 @@ classes = (
 	RENDER_PT_Region,
 	RenderStop,
 	MarginCalculate,
+	CreateReferenceImage,
 	testVar
 	)
 
