@@ -31,6 +31,7 @@ bl_info = {
 
 import bpy
 import os,subprocess
+from subprocess import run
 import math
 import platform
 from bpy.types import Panel, Operator, Scene, PropertyGroup, WindowManager
@@ -503,8 +504,17 @@ class CreateReferenceImage(Operator):
 		
 #		mainPath=bpy.path.abspath("//")
 #		self.outputFolderAbs + os.path.sep + self.region_name
+
+		mrg_w=ps.RR_mrg_w
+		mrg_h=ps.RR_mrg_h
+		if ps.RR_useMargins==False:
+			mrg_w=0
+			mrg_h=0
 		
-		imagePath=self.drawRef(resx,resy,nregionsw,nregionsh,ps.RR_mrg_w,ps.RR_mrg_h,bpy.path.abspath("//"))
+		imagePath=self.drawRef(resx,resy,nregionsw,nregionsh,mrg_w,mrg_h,bpy.path.abspath("//"))
+		if imagePath=="":
+			print("problem in creation image, check imagemagick installation.")
+			return{"FINISHED"}
 		cam = bpy.context.scene.camera
 
 		for bgi in cam.data.background_images:
@@ -529,12 +539,42 @@ class CreateReferenceImage(Operator):
 	
 	def drawRef(self,ww,hh,rows, cols, mrgw=0, mrgh=0,path="//"):
 		name=path+"rrref_"+str(ww)+"x"+str(hh)+"-"+str(rows)+"x"+str(cols)+".png"
+		
+		#check imagemagick
+		#version 7.1
+		cmd="magick --version"
+		newmagick=0
+		data = run(cmd, capture_output=True, shell=True)
+		output = data.stdout.splitlines()
+		errors = data.stderr.splitlines()
+		
+		if (len(errors)>0) or (len(output)<1):
+			print("no imagemagick new (7)")
+			newmagick=0
+			
+			cmd="convert --version"
+			data = run(cmd, capture_output=True, shell=True)
+			output = data.stdout.splitlines()
+			errors = data.stderr.splitlines()
+			if (len(errors)>0) or (len(output)<1):
+				newmagick=-1
+				print("no imagemagick")
+			else:
+				newmagick=0
+
+		else:
+			newmagick=1
+		print("newmagick",str(newmagick))
+		if newmagick==-1:
+			return ""
+		
 		drawCmnd=""
 		dh=round(hh/rows)
 		dw=round(ww/cols)
 		tmp=0
 		strokeSetLine=" -stroke red -strokewidth 4"
-		strokeSetMarg=" -stroke '#ff000040' -strokewidth "
+		strokeSetMarg=" -stroke \"#ff000040\" -strokewidth "
+#		strokeSetMarg=" -stroke #ff000040 -strokewidth "
 		for n in range(rows-1):
 			tmp+=dh
 			drawCmnd=drawCmnd+strokeSetLine+" -draw \"path 'M 0,"+str(tmp)+" l "+str(ww)+",0'\""
@@ -555,11 +595,19 @@ class CreateReferenceImage(Operator):
 		for nr in range(rows):
 			tmpw=dw3
 			for nc in range(cols):
-				drawCmnd+=" -draw 'text "+str(tmpw)+","+str(tmph)+" \""+str(cnt)+"\"'"
+				#old
+				# drawCmnd+=" -draw 'text "+str(tmpw)+","+str(tmph)+" \""+str(cnt)+"\"'"
+				#new
+				drawCmnd+=" -draw \"text "+str(tmpw)+","+str(tmph)+" '"+str(cnt)+"'\""
 				cnt=cnt+1
 				tmpw+=dw
 			tmph+=dh
-		cmdDraw="convert -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
+		if newmagick==0:
+			#old
+			cmdDraw="convert -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
+		else:
+			#new
+			cmdDraw="magick -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
 	#	print(cmdDraw)
 		subprocess.call(cmdDraw, shell=True)
 		return name
@@ -1450,6 +1498,37 @@ class RenderRegions(Operator):
 		strScriptPy+="arrayImg=[]"+"\n"
 		
 		imgExtension=str.lower(rnd.image_settings.file_format)
+		
+		###############################################
+		###############################################
+		#check imagemagick
+		#version 7.1
+		cmd="magick --version"
+		newmagick=0
+		data = run(cmd, capture_output=True, shell=True)
+		output = data.stdout.splitlines()
+		errors = data.stderr.splitlines()
+		
+		if (len(errors)>0) or (len(output)<1):
+			print("no imagemagick new (7)")
+			newmagick=0
+		else:
+			newmagick=1
+		cmd="convert --version"
+		data = run(cmd, capture_output=True, shell=True)
+		output = data.stdout.splitlines()
+		errors = data.stderr.splitlines()
+		if (len(errors)>0) or (len(output)<1):
+			newmagick=-1
+			print("no imagemagick")
+		else:
+			newmagick=0
+		print("newmagick",str(newmagick))
+		if newmagick==-1:
+			print("no imagemagick installation, install before launch script")
+			newmagick=1
+		###############################################
+		###############################################
 
 		tmprow=0
 		tmparray=""
@@ -1461,8 +1540,8 @@ class RenderRegions(Operator):
 			name = imgPre.replace("###", str(new_nframe))
 			name += "."+imgExtension
 			
-			cropW=resx/ps.RR_reg_rows
-			cropH=resy/ps.RR_reg_columns
+			cropW=resx/ps.RR_reg_columns
+			cropH=resy/ps.RR_reg_rows
 			cropX=ps.RR_mrg_w
 			cropY=ps.RR_mrg_h
 			nrow=el.nrow
@@ -1513,7 +1592,10 @@ class RenderRegions(Operator):
 		strScriptPy+="			col=str(img[6])"+"\n"
 		strScriptPy+="			ext=img[7]"+"\n"
 		strScriptPy+="			tmpnmcrop=nmcrop+row+\"-\"+col+\".\"+ext"+"\n"
-		strScriptPy+="			cmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" \"+tmpnmcrop"+"\n"
+		if newmagick==1:
+			strScriptPy+="			cmdcrop=\"magick \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
+		else:
+			strScriptPy+="			cmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
 		strScriptPy+="			print(\"crop \"+row+\"-\"+col)"+"\n"
 		strScriptPy+="			subprocess.call(cmdcrop, shell=True)"+"\n"
 		strScriptPy+="			img[0]=tmpnmcrop"+"\n"
@@ -1524,12 +1606,18 @@ class RenderRegions(Operator):
 		strScriptPy+="	"+"\n"
 		strScriptPy+="	tmprownm=str(nmrow)+str(nrow)+\".\"+str(ext)"+"\n"
 		strScriptPy+="	strImgRow+=tmprownm+\" \""+"\n"
-		strScriptPy+="	cmdAppRow = \"convert  \"+strImgCropped+\"  +append \"+tmprownm"+"\n"
+		if newmagick==1:
+			strScriptPy+="	cmdAppRow = \"magick  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
+		else:
+			strScriptPy+="	cmdAppRow = \"convert  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
 		strScriptPy+="	print(\"append row \"+str(nrow))"+"\n"
 		strScriptPy+="	subprocess.call(cmdAppRow, shell=True)"+"\n"
 		strScriptPy+="	nrow=nrow+1"+"\n"
 		strScriptPy+="	"+"\n"
-		strScriptPy+="cmdAppAll = \"convert  \"+strImgRow+\"  -append \"+finalImg"+"\n"
+		if newmagick==1:
+			strScriptPy+="cmdAppAll = \"magick  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
+		else:
+			strScriptPy+="cmdAppAll = \"convert  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
 		strScriptPy+="print(\"append all\")"+"\n"
 		strScriptPy+="subprocess.call(cmdAppAll, shell=True)"+"\n"
 		strScriptPy+="\n"
