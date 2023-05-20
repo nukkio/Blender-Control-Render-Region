@@ -1287,7 +1287,27 @@ class RenderRegions(Operator):
 		
 		file_name=os.path.splitext( os.path.split(bpy.data.filepath)[1])[0]
 		self.outputFolderAbs=os.path.split( bpy.path.abspath(rnd.filepath) )[0]
-		self.outputFolder=os.path.split( bpy.path.relpath(rnd.filepath) )[0]
+		
+		#######################
+		#self.outputFolder=os.path.split( bpy.path.relpath(rnd.filepath) )[0]
+		print("self.outputFolder")
+		print(self.outputFolder)
+		#errore in relpath se progetto e path di render in dischi diversi in win10
+		#fallisce: bpy.path.relpath(rnd.filepath)
+		#provare 
+		#os.path.relpath(rnd.filepath, os.path.splitdrive(rnd.filepath)[0])
+		#test relpath, se fallisce rimane abs
+		relp=""
+		try:
+			relp=bpy.path.relpath(rnd.filepath)
+		except:
+			relp=bpy.path.abspath(rnd.filepath)
+		
+		self.outputFolder=os.path.split( relp )[0]
+		print("self.outputFolder")
+		print(self.outputFolder)
+		#######################
+		
 		#ok linux##self.outputImgName=os.path.splitext(os.path.split( bpy.path.relpath(rnd.filepath) )[1])[0]
 		self.outputImgName=os.path.splitext(os.path.split( bpy.path.abspath(rnd.filepath) )[1])[0]
 		# print("----")
@@ -1540,8 +1560,8 @@ class RenderRegions(Operator):
 			name = imgPre.replace("###", str(new_nframe))
 			name += "."+imgExtension
 			
-			cropW=resx/ps.RR_reg_columns
-			cropH=resy/ps.RR_reg_rows
+			cropW=resx/ps.RR_reg_rows
+			cropH=resy/ps.RR_reg_columns
 			cropX=ps.RR_mrg_w
 			cropY=ps.RR_mrg_h
 			nrow=el.nrow
