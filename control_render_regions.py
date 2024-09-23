@@ -586,6 +586,8 @@ class CreateReferenceImage(Operator):
 			drawCmnd+=strokeSetLine+" -draw \"path 'M "+str(tmp)+",0 l 0,"+str(hh)+"'\""
 			if(mrgw!=0):
 				drawCmnd+=strokeSetMarg+str(mrgw*2)+" -draw \"path 'M "+str(tmp)+",0 l 0,"+str(hh)+"'\""
+		
+		#region number
 		dh3=round(dh/3)
 		dw3=round(dw/3)
 		tmph=dh3*2
@@ -602,6 +604,28 @@ class CreateReferenceImage(Operator):
 				cnt=cnt+1
 				tmpw+=dw
 			tmph+=dh
+
+		#region name
+		dh4=round(dh/6)
+		dw4=0#round(dw/6)
+		tmph4=dh4*1
+		drawCmnd+=" -pointsize "+str(dh4)+" -fill black -stroke none"
+		cntRows=0
+		cntCols=0
+		strRC=""
+		for nr in range(rows):
+			tmpw=dw4
+			for nc in range(cols):
+				strRC=str(cntRows)+"-"+str(cntCols)
+				drawCmnd+=" -draw \"text "+str(tmpw)+","+str(tmph4)+" '"+strRC+"'\""
+				cnt=cnt+1
+				tmpw+=dw
+				cntCols+=1
+			tmph4+=dh
+			cntRows+=1
+			cntCols=0
+
+
 		if newmagick==0:
 			#old
 			cmdDraw="convert -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
@@ -880,11 +904,17 @@ class RenderRegions(Operator):
 		#nome del file blend
 		blendName= bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]
 		
+##		#add n frame
+#		nframescript="_"+str(scn.frame_current)+"_"
+		cfs=scn.frame_current
+		nframescript = "_"+str(f'{cfs:0{3}d}')
+	
 		####################
 ##		##control file path, if outpur folder exist
 		####################
 #		
-		fileScript=self.outputFolderAbs+ os.path.sep+blendName+scriptExt
+#		fileScript=self.outputFolderAbs+ os.path.sep+blendName+scriptExt
+		fileScript=self.outputFolderAbs+ os.path.sep+blendName+nframescript+scriptExt
 			
 		with open(fileScript, 'w') as file:
 			file.write(strScript)
@@ -923,7 +953,12 @@ class RenderRegions(Operator):
 #		strScript+="file=\""+filepath+"\""+"\n"
 		strScript+="set file=%mainPath%"+fileName+"\n"
 		strScript+="set blenderPath="+blenderPath+"\n"
+		
 		strScript+=":: set cyclesSamples="+str(scn.cycles.samples)+"\n"
+		strScript+=":: set eeveeSamples="+str(scn.eevee.taa_render_samples)+"\n"
+		strScript+=":: set renderEngine="+str(scn.render.engine)+"\n"
+		strScript+=":: BLENDER_EEVEE CYCLES"+"\n"
+		
 		strScript+="set pythonName=renderscriptRRegion"+"\n"
 		strScript+="set pyfile=%mainPath%%pythonName%.py"+"\n"
 
@@ -959,7 +994,8 @@ class RenderRegions(Operator):
 		
 		strScript+="\n"
 		strScript+="::crop and join image"+"\n"
-		strScript+="::python "+pyJoin+"\n"
+#		strScript+="::python "+pyJoin+"\n"
+		strScript+="python "+pyJoin+"\n"
 		
 		strScript+="\n"
 		strScript+="echo \"done\"\n"
@@ -1007,7 +1043,10 @@ class RenderRegions(Operator):
 		strScript+="echo scn.frame_set(%curframe%) >> %pyfile%"+"\n"
 		strScript+="echo scn.frame_current = %curframe% >> %pyfile%"+"\n"
 		strScript+="echo scn.render.use_overwrite=True >> %pyfile%"+"\n"
+		
 		strScript+="::echo scn.cycles.samples=%cyclesSamples% >> %pyfile%"+"\n"
+		strScript+="::echo scn.eevee.taa_render_samples=%eeveeSamples% >> %pyfile%"+"\n"
+		strScript+="::echo scn.render.engine='%renderEngine%' >> %pyfile%"+"\n"
 		
 		strScript+="echo if(scn.node_tree!=None): >> %pyfile%"+"\n"
 		strScript+="echo     for xfo in scn.node_tree.nodes: >> %pyfile%"+"\n"
@@ -1050,7 +1089,12 @@ class RenderRegions(Operator):
 		strScript+="file=$mainPath\""+fileName+"\""+"\n"
 		strScript+="blenderPath="+blenderPath+""+"\n"
 		strScript+="datarender=$(date +\"%Y%m%d_%H-%M\")"+"\n"
+		
+		
 		strScript+="#cyclesSamples="+str(scn.cycles.samples)+"\n"
+		strScript+="#eeveeSamples="+str(scn.eevee.taa_render_samples)+"\n"
+		strScript+="#renderEngine="+str(scn.render.engine)+"\n"
+		strScript+="#### BLENDER_EEVEE CYCLES"+"\n"
 		
 		strScript+="\n"
 		
@@ -1106,7 +1150,10 @@ class RenderRegions(Operator):
 		strScript+="echo \"scn.frame_set(\"$curframe\")\" >> $pyfile"+"\n"
 		strScript+="echo \"scn.frame_current = \"$curframe >> $pyfile"+"\n"
 		strScript+="echo \"scn.render.use_overwrite=True\" >> $pyfile"+"\n"
+		
 		strScript+="#echo \"scn.cycles.samples=\"$cyclesSamples >> $pyfile"+"\n"
+		strScript+="#echo \"scn.eevee.taa_render_samples=\"$eeveeSamples >> $pyfile"+"\n"
+		strScript+="#echo \"scn.render.engine='\"$renderEngine\"'\" >> $pyfile"+"\n"
 		
 		strScript+="echo \"if(scn.node_tree!=None):\" >> $pyfile"+"\n"
 		strScript+="echo \"    for xfo in scn.node_tree.nodes:\" >> $pyfile"+"\n"
@@ -1140,6 +1187,7 @@ class RenderRegions(Operator):
 			if(ireg.render==False):
 				comm="#"
 			
+			strScript+=comm+"sleep 5s"+"\n"
 			strScript+=comm+"tmpImgName=\""+ireg.imageName+"\""+"\n"
 ####			in ireg.imageName c'è l'indicazione del frame (###)
 ####			che blender vuole mettere da qualche parte
@@ -1189,7 +1237,9 @@ class RenderRegions(Operator):
 		
 		strScript+="\n"
 		strScript+="#crop and join image"+"\n"
-		strScript+="#python "+pyJoin+"\n"
+#		strScript+="#python "+pyJoin+"\n"
+#		strScript+="#python3 "+pyJoin+"\n"
+		strScript+="python3 "+pyJoin+"\n"
 		
 		strScript+="\n"
 		strScript+="echo \"done\"\n"
@@ -1596,7 +1646,8 @@ class RenderRegions(Operator):
 		strScriptPy+="strImgCropped=\"\""+"\n"
 		strScriptPy+="tmprownm=\"\""+"\n"
 		strScriptPy+="strImgRow=\"\""+"\n"
-		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"."+imgExtension
+#		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"."+imgExtension
+		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"_"+str(new_nframe)+"."+imgExtension
 		strScriptPy+="finalImg=r\""+finalImg+"\""+"\n"
 		strScriptPy+="\n"
 		strScriptPy+="for arRow in arrayImg:"+"\n"
@@ -1641,11 +1692,14 @@ class RenderRegions(Operator):
 		strScriptPy+="print(\"append all\")"+"\n"
 		strScriptPy+="subprocess.call(cmdAppAll, shell=True)"+"\n"
 		strScriptPy+="\n"
-		strScriptPy+="print(\"done\")"+"\n"
+		strScriptPy+="print(\"append done\")"+"\n"
 
 		#nome del file python
 		blendName= bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]
-		filePython=outputFolderAbs+os.path.sep+blendName+".py"
+		
+#		filePython=outputFolderAbs+os.path.sep+blendName+".py"
+		#add frame
+		filePython=outputFolderAbs+os.path.sep+blendName+"_"+str(new_nframe)+".py"
 		
 		with open(filePython, 'w') as file:
 			file.write(strScriptPy)
