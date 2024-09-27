@@ -20,7 +20,7 @@
 bl_info = {
 	'name': 'Control Render Regions',
 	'author': 'nukkio',
-	'version': (1,0),
+	'version': (0,1),
 	'blender': (3, 0, 0),
 	'location': 'Render > Render Regions',
 	'description': 'Manage renders in region',
@@ -245,7 +245,7 @@ class RenderRegionSettings(PropertyGroup):
 	RR_createScript: BoolProperty(
 #		name="Create bash and python script",
 		name="Create scripts for render, save and join images",
-		default=False,
+		default=True,
 		description="Create script for render from command line and python script for join regions rendered",
 		)
 	
