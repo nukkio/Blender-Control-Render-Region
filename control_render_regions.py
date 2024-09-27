@@ -20,7 +20,7 @@
 bl_info = {
 	'name': 'Control Render Regions',
 	'author': 'nukkio',
-	'version': (0,1),
+	'version': (1,0),
 	'blender': (3, 0, 0),
 	'location': 'Render > Render Regions',
 	'description': 'Manage renders in region',
@@ -243,9 +243,10 @@ class RenderRegionSettings(PropertyGroup):
 		max = 10000)
 		
 	RR_createScript: BoolProperty(
-		name="Create bash and python script",
+#		name="Create bash and python script",
+		name="Create scripts for render, save and join images",
 		default=False,
-		description="Create bash script for render from command line and python script for join regions rendered",
+		description="Create script for render from command line and python script for join regions rendered",
 		)
 	
 	RR_useMargins: BoolProperty(
@@ -975,6 +976,7 @@ class RenderRegions(Operator):
 			
 			strScript+=comm+"set tmpImgName=\""+ireg.imageName+"\""+"\n"
 			strScript+=comm+"set datarender=%TIME% "+"\n"
+			strScript+=comm+"set datascript=%TIME% "+"\n"
 			strScript+=comm+"CALL :startrender "
 			strScript+=str(ireg.regionarea.minx)+", "
 			strScript+=str(ireg.regionarea.miny)+", "
@@ -1007,7 +1009,7 @@ class RenderRegions(Operator):
 		strScript+="set msg=%~1"+"\n"
 		strScript+="set datamsg=%TIME%"+"\n"
 		strScript+="::telegram-send \"%datarender% - %datamsg% - render %msg%\""+"\n"
-		strScript+="echo \"%datarender% - %datamsg% - render %msg%\""+"\n"
+		strScript+="echo \"%datascript% -- %datarender% - %datamsg% - render %msg%\""+"\n"
 		strScript+="ENDLOCAL"+"\n"
 		strScript+="EXIT /B 0"+"\n"
 		strScript+="\n"
@@ -1089,6 +1091,7 @@ class RenderRegions(Operator):
 		strScript+="file=$mainPath\""+fileName+"\""+"\n"
 		strScript+="blenderPath="+blenderPath+""+"\n"
 		strScript+="datarender=$(date +\"%Y%m%d_%H-%M\")"+"\n"
+		strScript+="datascript=$(date +\"%Y%m%d_%H-%M\")"+"\n"
 		
 		
 		strScript+="#cyclesSamples="+str(scn.cycles.samples)+"\n"
@@ -1104,7 +1107,7 @@ class RenderRegions(Operator):
 		strScript+="nomelog=$2"+"\n"
 		strScript+="datamsg=$(date +\"%Y%m%d_%H-%M\")"+"\n"
 		strScript+="#telegram-send \"$datarender - $datamsg - render $1\""+"\n"
-		strScript+="echo \"$datarender - $datamsg - render $1\""+"\n"
+		strScript+="echo \"$datascript -- $datarender - $datamsg - render $1\""+"\n"
 		strScript+="}"+"\n"
 		
 #		strScript+="renderregion()"+"\n"
@@ -1242,6 +1245,7 @@ class RenderRegions(Operator):
 		strScript+="python3 "+pyJoin+"\n"
 		
 		strScript+="\n"
+		strScript+="msg \"fine\"\n"
 		strScript+="echo \"done\"\n"
 		strScript+="\n"
 		return strScript
@@ -1266,9 +1270,10 @@ class RenderRegions(Operator):
 ##		nome della regione: colonnexrighe riga colonna
 		strname = str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_row + "_" + n_col
 		strnameScript = "###_" + str(self.num_cols)+"x"+str(self.num_rows) + "_" + n_row + "_" + n_col
+		strnameScript2 = "###_" + str(self.num_cols)+"x"+str(self.num_rows)
 #		print("strname",strname)
 		
-		return [strname,n_row,n_col,strnameScript]
+		return [strname,n_row,n_col,strnameScript,strnameScript2]
 
 	def setRender(self, context):
 		scn = context.scene
@@ -1501,12 +1506,13 @@ class RenderRegions(Operator):
 				tmpReg.index=ireg
 				
 				tempRegionName=self.getRegionName(context,ireg)
-	#			print("tempRegionName",tempRegionName)
+				print("tempRegionName",tempRegionName)
 				tmpReg.outImg = self.outputImgName
 				tmpReg.regionName = tempRegionName[0]
 				tmpReg.baseName = self.outputImgName +"_"+tempRegionName[0] + rnd.file_extension
 				tmpReg.baseNameNoExt = self.outputImgName +"_"+tempRegionName[0]
 				tmpReg.baseNameNoExtScript = self.outputImgName +"_"+tempRegionName[3]
+				tmpReg.baseNameNoExtScriptGen = self.outputImgName +"_"+tempRegionName[4]
 				tmpReg.fullName=self.outputFolder + os.path.sep + tmpReg.baseName
 				
 				# print("tmpReg.regionName",tmpReg.regionName)
@@ -1544,15 +1550,21 @@ class RenderRegions(Operator):
 #				print("tmpReg.maxx",tmpReg.maxx)
 				######################################################################
 				######################################################################
-				tmpReg.rows=ps.RR_reg_rows
-				tmpReg.cols=ps.RR_reg_columns
+				if ps.RR_method=="DIVIDE":
+					tmpReg.rows=ps.RR_reg_rows
+					tmpReg.cols=ps.RR_reg_columns
+				else:
+					tmpReg.rows=ps.RR_multiplier
+					tmpReg.cols=ps.RR_multiplier
 				tmpReg.frame=scn.frame_current
 				if ireg in reg:
 					tmpReg.render=True
 				else:
 					tmpReg.render=False
 				self.allRegions.append(tmpReg)
-		
+		else:
+			print("error create regions, check values")
+			self.report({'ERROR'},"Error create regions, check values")
 		return [reg,errorInsertRegions]
 
 	def writeJoinPython(self, context):
@@ -1562,12 +1574,6 @@ class RenderRegions(Operator):
 		
 		resx=rnd.resolution_x
 		resy=rnd.resolution_y
-		
-		strScriptPy="import subprocess"
-		strScriptPy+="\n"
-		strScriptPy+="arrayImg=[]"+"\n"
-		
-		imgExtension=str.lower(rnd.image_settings.file_format)
 		
 		###############################################
 		###############################################
@@ -1600,6 +1606,16 @@ class RenderRegions(Operator):
 		###############################################
 		###############################################
 
+		strScriptPy="import subprocess"
+		strScriptPy+="\n"
+		strScriptPy+="\n"
+		strScriptPy+="def cropJoinImages(path,pre,post,extension):"+"\n"
+		strScriptPy+="\tarrayImg=[]"+"\n"
+	
+#		strScriptPy+="arrayImg=[]"+"\n"
+		
+		imgExtension=str.lower(rnd.image_settings.file_format)
+
 		tmprow=0
 		tmparray=""
 		for el in self.allRegions:
@@ -1610,8 +1626,15 @@ class RenderRegions(Operator):
 			name = imgPre.replace("###", str(new_nframe))
 			name += "."+imgExtension
 			
-			cropW=resx/ps.RR_reg_rows
-			cropH=resy/ps.RR_reg_columns
+#			print("resx "+str(resx))
+#			print("ps.RR_reg_rows "+str(ps.RR_reg_rows))
+#			print("resy "+str(resy))
+#			print("RR_reg_columns "+str(ps.RR_reg_columns))
+			
+#			cropW=resx/ps.RR_reg_rows
+			cropW=resx/ps.RR_reg_columns
+#			cropH=resy/ps.RR_reg_columns
+			cropH=resy/ps.RR_reg_rows
 			cropX=ps.RR_mrg_w
 			cropY=ps.RR_mrg_h
 			nrow=el.nrow
@@ -1627,73 +1650,143 @@ class RenderRegions(Operator):
 				cropY=0
 			
 			if tmprow==nrow:
-				tmparray+="[r\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
+#				tmparray+="[r\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
+				tmparray+="["+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",extension,"+str(crop)+"],"
 			else:
 				tmprow=nrow
 				tmparray = tmparray[:-1]
-				strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
+				strScriptPy+="\tarrayImg.append(["+tmparray+"])"+"\n"
 				tmparray=""
-				tmparray+="[r\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
+#				tmparray+="[r\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
+				tmparray+="["+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",extension,"+str(crop)+"],"
 		
 		tmparray = tmparray[:-1]
-		strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
+		##last item
+		strScriptPy+="\tarrayImg.append(["+tmparray+"])"+"\n"
 		strScriptPy+="\n"
-		strScriptPy+="nmcrop=\"__crop__\""+"\n"
-		strScriptPy+="nmrow=\"__row__\""+"\n"
-		strScriptPy+="cmdcrop=\"\""+"\n"
-		strScriptPy+="nrow=0"+"\n"
-		strScriptPy+="ext=\"\""+"\n"
-		strScriptPy+="strImgCropped=\"\""+"\n"
-		strScriptPy+="tmprownm=\"\""+"\n"
-		strScriptPy+="strImgRow=\"\""+"\n"
-#		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"."+imgExtension
-		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"_"+str(new_nframe)+"."+imgExtension
-		strScriptPy+="finalImg=r\""+finalImg+"\""+"\n"
+		strScriptPy+="\tnmcrop=\"__crop__\""+"\n"
+		strScriptPy+="\tnmrow=\"__row__\""+"\n"
+		strScriptPy+="\tcmdcrop=\"\""+"\n"
+		strScriptPy+="\tnrow=0"+"\n"
+		strScriptPy+="\text=\"\""+"\n"
+		strScriptPy+="\tstrImgCropped=\"\""+"\n"
+		strScriptPy+="\ttmprownm=\"\""+"\n"
+		strScriptPy+="\tstrImgRow=\"\""+"\n"
+##		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"."+imgExtension
+#		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"_"+str(new_nframe)+"."+imgExtension
+#		strScriptPy+="finalImg=r\""+finalImg+"\""+"\n"
+		strScriptPy+="\tfinalImg=path+pre+post+\"_joined\"+\".\"+extension"+"\n"
+		strScriptPy+="\t\n"
+		strScriptPy+="\tfor arRow in arrayImg:"+"\n"
+		strScriptPy+="\t\tstrImgCropped=\"\""+"\n"
+		strScriptPy+="\t\tfor img in arRow:"+"\n"
+		strScriptPy+="\t\t\tif img[7]==True:"+"\n"
+#		strScriptPy+="\t\t\t\tname=img[0]"+"\n"
+		strScriptPy+="\t\t\t\tcropW=str(img[0])"+"\n"
+		strScriptPy+="\t\t\t\tcropH=str(img[1])"+"\n"
+		strScriptPy+="\t\t\t\tcropX=str(img[2])"+"\n"
+		strScriptPy+="\t\t\t\tcropY=str(img[3])"+"\n"
+		strScriptPy+="\t\t\t\trow=str(img[4])"+"\n"
+		strScriptPy+="\t\t\t\tcol=str(img[5])"+"\n"
+		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+		strScriptPy+="\t\t\t\tname=path+pre+row+\"_\"+col+post+\".\"+extension"+"\n"
+		strScriptPy+="\t\t\t\ttmpnmcrop=nmcrop+row+\"-\"+col+\".\"+ext"+"\n"
+		if newmagick==1:
+			strScriptPy+="\t\t\t\tcmdcrop=\"magick \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
+		else:
+			strScriptPy+="\t\t\t\tcmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
+		strScriptPy+="\t\t\t\tprint(\"crop \"+row+\"-\"+col)"+"\n"
+		strScriptPy+="\t\t\t\tsubprocess.call(cmdcrop, shell=True)"+"\n"
+#		strScriptPy+="\t\t\t\timg[0]=tmpnmcrop"+"\n"
+		strScriptPy+="\t\t\t\tstrImgCropped+=tmpnmcrop+\" \""+"\n"
+		strScriptPy+="\t\t\telse:"+"\n"
+		strScriptPy+="\t\t\t\trow=str(img[4])"+"\n"
+		strScriptPy+="\t\t\t\tcol=str(img[5])"+"\n"
+		strScriptPy+="\t\t\t\tstrImgCropped+=(path+pre+row+\"_\"+col+post+\".\"+extension)+\" \""+"\n"
+		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+		strScriptPy+="\t"+"\n"
+		strScriptPy+="\t\ttmprownm=str(nmrow)+str(nrow)+\".\"+str(ext)"+"\n"
+		strScriptPy+="\t\tstrImgRow+=tmprownm+\" \""+"\n"
+		if newmagick==1:
+			strScriptPy+="\t\tcmdAppRow = \"magick  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
+		else:
+			strScriptPy+="\t\tcmdAppRow = \"convert  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
+		strScriptPy+="\t\tprint(\"append row \"+str(nrow))"+"\n"
+		strScriptPy+="\t\tsubprocess.call(cmdAppRow, shell=True)"+"\n"
+		strScriptPy+="\t\tnrow=nrow+1"+"\n"
+		strScriptPy+="\t"+"\n"
+		if newmagick==1:
+			strScriptPy+="\tcmdAppAll = \"magick  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
+		else:
+			strScriptPy+="\tcmdAppAll = \"convert  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
+		strScriptPy+="\tprint(\"append all\")"+"\n"
+		strScriptPy+="\tsubprocess.call(cmdAppAll, shell=True)"+"\n"
+		strScriptPy+="\tarrayImg=[]"+"\n"
 		strScriptPy+="\n"
-		strScriptPy+="for arRow in arrayImg:"+"\n"
-		strScriptPy+="	strImgCropped=\"\""+"\n"
-		strScriptPy+="	for img in arRow:"+"\n"
-		strScriptPy+="		if img[8]==True:"+"\n"
-		strScriptPy+="			name=img[0]"+"\n"
-		strScriptPy+="			cropW=str(img[1])"+"\n"
-		strScriptPy+="			cropH=str(img[2])"+"\n"
-		strScriptPy+="			cropX=str(img[3])"+"\n"
-		strScriptPy+="			cropY=str(img[4])"+"\n"
-		strScriptPy+="			row=str(img[5])"+"\n"
-		strScriptPy+="			col=str(img[6])"+"\n"
-		strScriptPy+="			ext=img[7]"+"\n"
-		strScriptPy+="			tmpnmcrop=nmcrop+row+\"-\"+col+\".\"+ext"+"\n"
-		if newmagick==1:
-			strScriptPy+="			cmdcrop=\"magick \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
-		else:
-			strScriptPy+="			cmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
-		strScriptPy+="			print(\"crop \"+row+\"-\"+col)"+"\n"
-		strScriptPy+="			subprocess.call(cmdcrop, shell=True)"+"\n"
-		strScriptPy+="			img[0]=tmpnmcrop"+"\n"
-		strScriptPy+="			strImgCropped+=tmpnmcrop+\" \""+"\n"
-		strScriptPy+="		else:"+"\n"
-		strScriptPy+="			strImgCropped+=img[0]+\" \""+"\n"
-		strScriptPy+="			ext=img[7]"+"\n"
-		strScriptPy+="	"+"\n"
-		strScriptPy+="	tmprownm=str(nmrow)+str(nrow)+\".\"+str(ext)"+"\n"
-		strScriptPy+="	strImgRow+=tmprownm+\" \""+"\n"
-		if newmagick==1:
-			strScriptPy+="	cmdAppRow = \"magick  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
-		else:
-			strScriptPy+="	cmdAppRow = \"convert  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
-		strScriptPy+="	print(\"append row \"+str(nrow))"+"\n"
-		strScriptPy+="	subprocess.call(cmdAppRow, shell=True)"+"\n"
-		strScriptPy+="	nrow=nrow+1"+"\n"
-		strScriptPy+="	"+"\n"
-		if newmagick==1:
-			strScriptPy+="cmdAppAll = \"magick  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
-		else:
-			strScriptPy+="cmdAppAll = \"convert  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
-		strScriptPy+="print(\"append all\")"+"\n"
-		strScriptPy+="subprocess.call(cmdAppAll, shell=True)"+"\n"
 		strScriptPy+="\n"
+		
+		#main render image
+		outputFolderAbs=os.path.split( bpy.path.abspath(rnd.filepath) )[0]
+		el=self.allRegions[0]
+#		imgPre=outputFolderAbs + os.path.sep + el.baseNameNoExtScript
+		imgPre=el.baseNameNoExtScriptGen
+		cf=el.frame
+		new_nframe = f'{cf:0{3}d}'
+		name = imgPre.replace("###", str(new_nframe))
+#		name += "."+imgExtension
+		name += "_"
+		
+		strScriptPy+="path=r\""+outputFolderAbs+"/\""+"\n"
+		strScriptPy+="\n"
+		###############################################
+		##start join main render
+		###############################################
+		strScriptPy+="print(\""+name+"\")"+"\n"
+		strScriptPy+="cropJoinImages(path,\""+name+"\",\"\",\""+imgExtension+"\")"+"\n"
+		###############################################
+		##end join main render
+		###############################################
+		strScriptPy+="\n"
+		###############################################
+		##start join compositor file output
+		###############################################
+#		print("*********************")
+#		el.printAllProp()
+		new_nframeFileout = f'{cf:0{4}d}'
+		tmpFileOut=""
+		outputFolderAbsFO=""
+		if(scn.node_tree!=None):
+			for xfo in scn.node_tree.nodes:
+				if (xfo.type=='OUTPUT_FILE'):
+					tempslotcount=len(xfo.file_slots)
+#					print(str(xfo.base_path))
+					outputFolderAbsFO=os.path.split( bpy.path.abspath(xfo.base_path) )[0]
+					outputFolderAbsFO+="/"
+#					print(str(outputFolderAbsFO))
+					strScriptPy+="path=r\""+str(outputFolderAbsFO)+"/\""+"\n"
+					for xSlot in range(tempslotcount):
+						if (xfo.inputs[xSlot].is_linked==True):
+							tmpFileOut = str( str(xfo.file_slots[xSlot].path) + str(el.cols) + "x" + str(el.rows) + "_" )
+							strScriptPy+="print(\"" + tmpFileOut + "\")"+"\n"
+							strScriptPy+="cropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
+							strScriptPy+="\n"
+#		print("*********************")
+		#print("fileout_4x4_")
+		#cropJoinImages(path,"fileout_4x4_","_0000","png")
+		###############################################
+		##end join compositor file output
+		###############################################
+		#print("fileout_4x4_")
+		#cropJoinImages(path,"fileout_4x4_","_0000","png")		
+		
 		strScriptPy+="print(\"append done\")"+"\n"
+		strScriptPy+="\n"
+		strScriptPy+="\n"
 
+
+		###############################################
+		##write python file
+		###############################################
 		#nome del file python
 		blendName= bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]
 		
@@ -1790,6 +1883,7 @@ class Region:
 	baseName=""
 	baseNameNoExt=""
 	baseNameNoExtScript=""
+	baseNameNoExtScriptGen=""
 	fullName=""
 	rows=0
 	cols=0
@@ -1813,6 +1907,7 @@ class Region:
 		print("baseName",self.baseName)
 		print("baseNameNoExt",self.baseNameNoExt)
 		print("baseNameNoExtScript",self.baseNameNoExtScript)
+		print("baseNameNoExtScriptGen",self.baseNameNoExtScriptGen)
 		print("fullName",self.fullName)
 		print("rows",self.rows)
 		print("cols",self.cols)
