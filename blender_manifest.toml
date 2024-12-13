@@ -1,0 +1,25 @@
+schema_version = "1.0.0"
+
+id = "Control_Render_Regions"
+version = "1.0.5"
+name = "Control Render Regions"
+tagline = "Manage renders in region"
+maintainer = "nukkio <nukkiogm@gmail.com>"
+type = "add-on"
+website = "https://extensions.blender.org/add-ons/control-render-regions/"
+
+tags = ["Render", "Pipeline"]
+
+blender_version_min = "4.2.0"
+
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+copyright = [
+  "2019-2024 nukkio",
+]
+
+[permissions]
+files = "Create script to render from terminal and render image"
+
+
