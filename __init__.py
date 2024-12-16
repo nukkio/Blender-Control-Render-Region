@@ -20,7 +20,7 @@
 #bl_info = {
 #	'name': 'Control Render Regions',
 #	'author': 'nukkio',
-#	'version': (0,1),
+#	'version': (1.0.6),
 #	'blender': (3, 0, 0),
 #	'location': 'Render > Render Regions',
 #	'description': 'Manage renders in region',
@@ -34,7 +34,14 @@ import os,subprocess
 from subprocess import run
 import math
 import platform
-from bpy.types import Panel, Operator, Scene, PropertyGroup, WindowManager
+from bpy.types import (
+						Panel, 
+						Operator, 
+						Scene, 
+						PropertyGroup, 
+						WindowManager, 
+						AddonPreferences
+					)
 from bpy.props import (
 						BoolProperty,
 						IntProperty,
@@ -46,6 +53,23 @@ from bpy.props import (
 					)
 from bpy.app.handlers import render_pre, render_post, render_cancel
 from bpy.app import driver_namespace
+
+#oiioOK=False
+#try:
+#	import OpenImageIO as oiio
+#	oiioOK=True
+#except ImportError:
+#	oiioOK=False
+
+pilOK=False
+try:
+	from PIL import Image, ImageDraw, ImageFont
+#	print("PIL ok")
+	pilOK=True
+except ImportError:
+#	print("PIL ko")
+	pilOK=False
+
 #>>> import os
 #>>> os.name
 #'posix'
@@ -64,8 +88,8 @@ from bpy.app import driver_namespace
 class RenderRegionSettings(PropertyGroup):
 
 	def method_update(self,context):
-		print("method_update")
-		print(str(self.RR_method))
+#		print("method_update")
+#		print(str(self.RR_method))
 		if self.RR_method=="DIVIDE":
 			self.RR_rowscols=True
 			self.RR_dim_region=False
@@ -531,7 +555,7 @@ class CreateReferenceImage(Operator):
 		cam = bpy.context.scene.camera
 
 		for bgi in cam.data.background_images:
-			print(bgi.image.name)
+#			print(bgi.image.name)
 			if bgi.image and bgi.image.name.startswith("rrref"):
 				img=bpy.data.images[bgi.image.name]
 				cam.data.background_images.remove(bgi)
@@ -553,101 +577,255 @@ class CreateReferenceImage(Operator):
 	def drawRef(self,ww,hh,rows, cols, mrgw=0, mrgh=0,path="//"):
 		name=path+"rrref_"+str(ww)+"x"+str(hh)+"-"+str(rows)+"x"+str(cols)+".png"
 		
-		#check imagemagick
-		#version 7.1
-		cmd="magick --version"
-		newmagick=0
-		data = run(cmd, capture_output=True, shell=True)
-		output = data.stdout.splitlines()
-		errors = data.stderr.splitlines()
-		
-		if (len(errors)>0) or (len(output)<1):
-			print("no imagemagick new (7)")
-			newmagick=0
+#		PIL installed by extension, use PIL
+		if(pilOK==True):
+			print("create reference image using PIL")
+			strokeColor=("#ff0000")
+			strokeColorMarg=("#ff000020")
+			strokeWidth=4
+			#inizializza immagine
+			buffertmp = Image.new("RGBA", (ww,hh), (0, 0, 0, 0))
 			
-			cmd="convert --version"
+			drawCmnd=""
+			dh=round(hh/rows)
+			dw=round(ww/cols)
+			tmp=0
+			startX=0
+			startY=0
+			# create lines image
+			imgLines = ImageDraw.Draw(buffertmp)
+			for n in range(rows-1):
+				startY+=dh
+				imgLines.line([( startX, int(startY-(strokeWidth/2))),(ww, int(startY+(strokeWidth/2)))], fill=strokeColor, width=strokeWidth) 
+				if(mrgh!=0):
+#					print("m")
+					imgLines.rectangle([(startX, int(startY-(mrgh))),(ww, int(startY+(mrgh)))], fill=strokeColorMarg, outline=None, width=1)
+			startX=0
+			startY=0
+			for n in range(cols-1):
+				startX+=dw
+				imgLines.line([( int(startX-(strokeWidth/2)), startY), ( int(startX+(strokeWidth/2)), hh)], fill=strokeColor, width=strokeWidth) 
+				if(mrgw!=0):
+#					print("m")
+					imgLines.rectangle([(int(startX-(mrgw)), startY), (int(startX+(mrgw)), hh)], fill=strokeColorMarg, outline=None, width=1)
+			#region number
+			dh3=round(dh/3)
+			dw3=round(dw/3)
+			tmph=dh3*2
+			tmpw=dw3
+			cnt=0
+			textSize=(min(dh3,dw3))
+			fontNumber = ImageFont.load_default(size=textSize)
+			for nr in range(rows):
+				tmpw=dw3
+				for nc in range(cols):
+					imgLines.text((tmpw, tmph), str(cnt), fill=strokeColor, font=fontNumber, anchor="mm")
+					cnt=cnt+1
+					tmpw+=dw
+				tmph+=dh
+
+			#region name
+			dh4=round(dh/6)
+			dw4=0#round(dw/6)
+			tmph4=dh4*1
+			textSize=(dh4)
+			fontNumber = ImageFont.load_default(size=textSize)
+			cntRows=0
+			cntCols=0
+			strRC=""
+			for nr in range(rows):
+				tmpw=dw4
+				for nc in range(cols):
+					strRC=str(cntRows)+"-"+str(cntCols)
+					imgLines.text((tmpw, tmph4), strRC, fill=strokeColor, font=fontNumber, anchor="lm")
+					cnt=cnt+1
+					tmpw+=dw
+					cntCols+=1
+				tmph4+=dh
+				cntRows+=1
+				cntCols=0
+			buffertmp.save(name)
+			
+#		elif(oiioOK==True):
+#			print("use OpenImageIO for reference image")
+#			#################################
+#			#################################
+#			##using openimageio##############
+#			#################################
+#			print("create reference image using OpenImageIO")
+#			strokeColor=(1, 0, 0, 1)
+#			strokeColorMarg=(1, 0, 0, 0.3)
+#			strokeWidth=4
+#			#inizializza immagine
+#			buffertmp = oiio.ImageBuf(oiio.ImageSpec(ww, hh, 4, "float"))
+#			
+#			drawCmnd=""
+#			dh=round(hh/rows)
+#			dw=round(ww/cols)
+#			tmp=0
+#			startX=0
+#			startY=0
+#			for n in range(rows-1):
+#				startY+=dh
+#				oiio.ImageBufAlgo.render_box(buffertmp, startX, int(startY-(strokeWidth/2)), ww, int(startY+(strokeWidth/2)), strokeColor, True)
+#				if(mrgh!=0):
+#					oiio.ImageBufAlgo.render_box(buffertmp, startX, int(startY-(mrgh)), ww, int(startY+(mrgh)), strokeColorMarg, True)
+#			startX=0
+#			startY=0
+#			for n in range(cols-1):
+#				startX+=dw
+#				oiio.ImageBufAlgo.render_box(buffertmp, int(startX-(strokeWidth/2)), startY, int(startX+(strokeWidth/2)), hh, strokeColor, True)
+#				if(mrgw!=0):
+#					oiio.ImageBufAlgo.render_box(buffertmp, int(startX-(mrgw)), startY, int(startX+(mrgw)), hh, strokeColorMarg, True)
+#			
+#			#region number
+#			dh3=round(dh/3)
+#			dw3=round(dw/3)
+#			tmph=dh3*2
+#			tmpw=dw3
+#			cnt=0
+#			textSize=(min(dh3,dw3))
+#			texterror=""
+#			for nr in range(rows):
+#				tmpw=dw3
+#				for nc in range(cols):
+#					if not oiio.ImageBufAlgo.render_text(buffertmp, tmpw, tmph, "**"+str(cnt), textSize, "", strokeColor, alignx="center", aligny="center"):
+#						er="ControlRender Region-oiio error: " + buffertmp.geterror()
+#						print(er)
+#						texterror=er
+#					cnt=cnt+1
+#					tmpw+=dw
+#				tmph+=dh
+
+#			#region name
+#			dh4=round(dh/6)
+#			dw4=0#round(dw/6)
+#			tmph4=dh4*1
+#			textSize=(dh4)
+#			cntRows=0
+#			cntCols=0
+#			strRC=""
+#			for nr in range(rows):
+#				tmpw=dw4
+#				for nc in range(cols):
+#					strRC=str(cntRows)+"-"+str(cntCols)
+#					if not oiio.ImageBufAlgo.render_text(buffertmp, tmpw, tmph4, strRC, textSize, "Arial", (0,0,0,1), alignx="center", aligny="center"):
+#						er="ControlRender Region-oiio error: " + buffertmp.geterror()
+#						print(er)
+#						texterror=er
+#					cnt=cnt+1
+#					tmpw+=dw
+#					cntCols+=1
+#				tmph4+=dh
+#				cntRows+=1
+#				cntCols=0
+#			if(texterror!=""):
+#				self.report({'ERROR'},texterror+", image reference without region number")
+#			buffertmp.write(name)
+#			#################################
+#			##using openimageio end##########
+#			#################################
+		else:
+			print("use ImageMagick for reference image")
+			#################################
+			#################################
+			##using imagemagick##############
+			#################################
+			#check imagemagick
+			#version 7.1
+			cmd="magick --version"
+			newmagick=0
 			data = run(cmd, capture_output=True, shell=True)
 			output = data.stdout.splitlines()
 			errors = data.stderr.splitlines()
+			
 			if (len(errors)>0) or (len(output)<1):
-				newmagick=-1
-				print("no imagemagick")
-			else:
+				print("no imagemagick new (7)")
 				newmagick=0
+				
+				cmd="convert --version"
+				data = run(cmd, capture_output=True, shell=True)
+				output = data.stdout.splitlines()
+				errors = data.stderr.splitlines()
+				if (len(errors)>0) or (len(output)<1):
+					newmagick=-1
+					print("no imagemagick")
+				else:
+					newmagick=0
 
-		else:
-			newmagick=1
-		print("newmagick",str(newmagick))
-		if newmagick==-1:
-			self.report({'ERROR'},"Imagemagick not found, no image created")
-			return ""
-		
-		drawCmnd=""
-		dh=round(hh/rows)
-		dw=round(ww/cols)
-		tmp=0
-		strokeSetLine=" -stroke red -strokewidth 4"
-		strokeSetMarg=" -stroke \"#ff000040\" -strokewidth "
-#		strokeSetMarg=" -stroke #ff000040 -strokewidth "
-		for n in range(rows-1):
-			tmp+=dh
-			drawCmnd=drawCmnd+strokeSetLine+" -draw \"path 'M 0,"+str(tmp)+" l "+str(ww)+",0'\""
-			if(mrgh!=0):
-				drawCmnd=drawCmnd+strokeSetMarg+str(mrgh*2)+" -draw \"path 'M 0,"+str(tmp)+" l "+str(ww)+",0'\""
-		tmp=0
-		for n in range(cols-1):
-			tmp+=dw
-			drawCmnd+=strokeSetLine+" -draw \"path 'M "+str(tmp)+",0 l 0,"+str(hh)+"'\""
-			if(mrgw!=0):
-				drawCmnd+=strokeSetMarg+str(mrgw*2)+" -draw \"path 'M "+str(tmp)+",0 l 0,"+str(hh)+"'\""
-		
-		#region number
-		dh3=round(dh/3)
-		dw3=round(dw/3)
-		tmph=dh3*2
-		tmpw=dw3
-		cnt=0
-		drawCmnd+=" -pointsize "+str(min(dh3,dw3))+" -fill red -stroke none"
-		for nr in range(rows):
+			else:
+				newmagick=1
+#			print("newmagick",str(newmagick))
+			if newmagick==-1:
+				self.report({'ERROR'},"Imagemagick not found, no image created")
+				return ""
+				
+			print("create reference image using Imagemagick")
+			drawCmnd=""
+			dh=round(hh/rows)
+			dw=round(ww/cols)
+			tmp=0
+			strokeSetLine=" -stroke red -strokewidth 4"
+			strokeSetMarg=" -stroke \"#ff000040\" -strokewidth "
+			for n in range(rows-1):
+				tmp+=dh
+				drawCmnd=drawCmnd+strokeSetLine+" -draw \"path 'M 0,"+str(tmp)+" l "+str(ww)+",0'\""
+				if(mrgh!=0):
+					drawCmnd=drawCmnd+strokeSetMarg+str(mrgh*2)+" -draw \"path 'M 0,"+str(tmp)+" l "+str(ww)+",0'\""
+			tmp=0
+			for n in range(cols-1):
+				tmp+=dw
+				drawCmnd+=strokeSetLine+" -draw \"path 'M "+str(tmp)+",0 l 0,"+str(hh)+"'\""
+				if(mrgw!=0):
+					drawCmnd+=strokeSetMarg+str(mrgw*2)+" -draw \"path 'M "+str(tmp)+",0 l 0,"+str(hh)+"'\""
+			
+			#region number
+			dh3=round(dh/3)
+			dw3=round(dw/3)
+			tmph=dh3*2
 			tmpw=dw3
-			for nc in range(cols):
-				#old
-				# drawCmnd+=" -draw 'text "+str(tmpw)+","+str(tmph)+" \""+str(cnt)+"\"'"
-				#new
-				drawCmnd+=" -draw \"text "+str(tmpw)+","+str(tmph)+" '"+str(cnt)+"'\""
-				cnt=cnt+1
-				tmpw+=dw
-			tmph+=dh
+			cnt=0
+			drawCmnd+=" -pointsize "+str(min(dh3,dw3))+" -fill red -stroke none"
+			for nr in range(rows):
+				tmpw=dw3
+				for nc in range(cols):
+					drawCmnd+=" -draw \"text "+str(tmpw)+","+str(tmph)+" '"+str(cnt)+"'\""
+					cnt=cnt+1
+					tmpw+=dw
+				tmph+=dh
 
-		#region name
-		dh4=round(dh/6)
-		dw4=0#round(dw/6)
-		tmph4=dh4*1
-		drawCmnd+=" -pointsize "+str(dh4)+" -fill black -stroke none"
-		cntRows=0
-		cntCols=0
-		strRC=""
-		for nr in range(rows):
-			tmpw=dw4
-			for nc in range(cols):
-				strRC=str(cntRows)+"-"+str(cntCols)
-				drawCmnd+=" -draw \"text "+str(tmpw)+","+str(tmph4)+" '"+strRC+"'\""
-				cnt=cnt+1
-				tmpw+=dw
-				cntCols+=1
-			tmph4+=dh
-			cntRows+=1
+			#region name
+			dh4=round(dh/6)
+			dw4=0#round(dw/6)
+			tmph4=dh4*1
+			drawCmnd+=" -pointsize "+str(dh4)+" -fill black -stroke none"
+			cntRows=0
 			cntCols=0
+			strRC=""
+			for nr in range(rows):
+				tmpw=dw4
+				for nc in range(cols):
+					strRC=str(cntRows)+"-"+str(cntCols)
+					drawCmnd+=" -draw \"text "+str(tmpw)+","+str(tmph4)+" '"+strRC+"'\""
+					cnt=cnt+1
+					tmpw+=dw
+					cntCols+=1
+				tmph4+=dh
+				cntRows+=1
+				cntCols=0
 
 
-		if newmagick==0:
-			#old
-			cmdDraw="convert -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
-		else:
-			#new
-			cmdDraw="magick -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
-	#	print(cmdDraw)
-		subprocess.call(cmdDraw, shell=True)
+			if newmagick==0:
+				#old
+				cmdDraw="convert -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
+			else:
+				#new
+				cmdDraw="magick -size "+str(ww)+"x"+str(hh)+" xc:none -fill none "+drawCmnd+" "+name
+			subprocess.call(cmdDraw, shell=True)
+			#################################
+			##using imagemagick end##########
+			#################################
+
 		return name
 
 class MarginCalculate(Operator):
@@ -905,9 +1083,9 @@ class RenderRegions(Operator):
 		renderFolder=self.outputFolderAbs
 		renderFolderExist = os.path.exists(renderFolder)
 		creatingFolder=""
-		print("**")
-		print(renderFolderExist)
-		print("**")
+#		print("**")
+#		print(renderFolderExist)
+#		print("**")
 		if (renderFolderExist==False):
 			try:
 #				os.mkdir(renderFolder)
@@ -1282,9 +1460,10 @@ class RenderRegions(Operator):
 		
 		strScript+="\n"
 		strScript+="#crop and join image"+"\n"
-#		strScript+="#python "+pyJoin+"\n"
-#		strScript+="#python3 "+pyJoin+"\n"
-		strScript+="python3 "+pyJoin+"\n"
+		if(ps.RR_reg_columns>1 or ps.RR_reg_rows>1):
+			strScript+="python3 "+pyJoin+"\n"
+		else:
+			strScript+="#python3 "+pyJoin+"\n"
 		
 		strScript+="\n"
 		#20241213
@@ -1395,8 +1574,8 @@ class RenderRegions(Operator):
 		#######################
 		#######################
 		#self.outputFolder=os.path.split( bpy.path.relpath(rnd.filepath) )[0]
-		print("self.outputFolder")
-		print(self.outputFolder)
+#		print("self.outputFolder")
+#		print(self.outputFolder)
 		#errore in relpath se progetto e path di render in dischi diversi in win10
 		#fallisce: bpy.path.relpath(rnd.filepath)
 		#provare 
@@ -1409,8 +1588,8 @@ class RenderRegions(Operator):
 			relp=bpy.path.abspath(rnd.filepath)
 		
 		self.outputFolder=os.path.split( relp )[0]
-		print("self.outputFolder")
-		print(self.outputFolder)
+#		print("self.outputFolder")
+#		print(self.outputFolder)
 		#######################
 		
 		#ok linux##self.outputImgName=os.path.splitext(os.path.split( bpy.path.relpath(rnd.filepath) )[1])[0]
@@ -1527,8 +1706,8 @@ class RenderRegions(Operator):
 			if (control.isdigit()):
 				reg_temp=ps.RR_who_region.split("-")
 				for a in range(int(reg_temp[0]),int(reg_temp[1])+1):
-					print("reg_temp[a]",a)
-					print("self.tot_reg",self.tot_reg)
+#					print("reg_temp[a]",a)
+#					print("self.tot_reg",self.tot_reg)
 					if int(a)<self.tot_reg:
 						reg.append(int(a))
 					else:
@@ -1556,7 +1735,7 @@ class RenderRegions(Operator):
 				tmpReg.index=ireg
 				
 				tempRegionName=self.getRegionName(context,ireg)
-				print("tempRegionName",tempRegionName)
+#				print("tempRegionName",tempRegionName)
 				tmpReg.outImg = self.outputImgName
 				tmpReg.regionName = tempRegionName[0]
 				tmpReg.baseName = self.outputImgName +"_"+tempRegionName[0] + rnd.file_extension
@@ -1636,7 +1815,7 @@ class RenderRegions(Operator):
 		errors = data.stderr.splitlines()
 		
 		if (len(errors)>0) or (len(output)<1):
-			print("no imagemagick new (7)")
+#			print("no imagemagick new (7)")
 			newmagick=0
 		else:
 			newmagick=1
@@ -1656,17 +1835,50 @@ class RenderRegions(Operator):
 		###############################################
 		###############################################
 
-		strScriptPy="import subprocess"
+		strScriptPy="import subprocess"+"\n"
+		strScriptPy+="import os"+"\n"
 		strScriptPy+="\n"
-		strScriptPy+="\n"
-		strScriptPy+="def cropJoinImages(path,pre,post,extension):"+"\n"
-		strScriptPy+="\tarrayImg=[]"+"\n"
+		strScriptPy+="oiioOK=False"+"\n"
+#		if(oiioOK==False):
+#			strScriptPy+="#try:"+"\n"
+#			strScriptPy+="#\timport OpenImageIO as oiio"+"\n"
+#			strScriptPy+="#\tprint(\"found OpenImageIO\")"+"\n"
+#			strScriptPy+="#\toiioOK=True"+"\n"
+#			strScriptPy+="#except ImportError:"+"\n"
+#			strScriptPy+="#\tprint(\"Not found OpenImageIO, using ImageMagick\")"+"\n"
+#			strScriptPy+="#\toiioOK=False"+"\n"
+#		else:
+		strScriptPy+="try:"+"\n"
+		strScriptPy+="\timport OpenImageIO as oiio"+"\n"
+		strScriptPy+="\tprint(\"found OpenImageIO\")"+"\n"
+		strScriptPy+="\toiioOK=True"+"\n"
+		strScriptPy+="except ImportError:"+"\n"
+		strScriptPy+="\tprint(\"OpenImageIO not found \")"+"\n"
+		strScriptPy+="\toiioOK=False"+"\n"
+		
+		strScriptPy+="pilOK=False"+"\n"
+		strScriptPy+="try:"+"\n"
+		strScriptPy+="\tfrom PIL import Image"+"\n"
+		strScriptPy+="\tprint(\"found PIL\")"+"\n"
+		strScriptPy+="\tpilOK=True"+"\n"
+		strScriptPy+="except ImportError:"+"\n"
+		strScriptPy+="\tprint(\"PIL not found \")"+"\n"
+		strScriptPy+="\tpilOK=False"+"\n"
 	
 #		strScriptPy+="arrayImg=[]"+"\n"
 		
 		#2024-12-13
 #		imgExtension=str.lower(rnd.image_settings.file_format)
 		imgExtension=(str.lower(rnd.file_extension))[1:]
+
+		strScriptPy+="\n"
+		strScriptPy+="extension=\""+imgExtension+"\""+"\n"
+		strScriptPy+="arrayImg=[]"+"\n"
+#		strScriptPy+="\n"
+#		strScriptPy+="\n"
+#		strScriptPy+="def cropJoinImages(path,pre,post,extension):"+"\n"
+#		strScriptPy+="\tarrayImg=[]"+"\n"
+
 
 		tmprow=0
 		tmparray=""
@@ -1692,9 +1904,13 @@ class RenderRegions(Operator):
 			nrow=el.nrow
 			ncol=el.ncol
 			crop=ps.RR_useMargins
+			scriptResx=resx
+			scriptResy=resy
 			if ps.RR_method=="MULTIPLY":
 				cropW=resx#(resx/ps.RR_reg_rows)*ps.RR_multiplier
 				cropH=resy#(resy/ps.RR_reg_columns)*ps.RR_multiplier
+				scriptResx=resx*ps.RR_multiplier
+				scriptResy=resy*ps.RR_multiplier
 			
 			if(ncol==0):
 				cropX=0
@@ -1707,14 +1923,38 @@ class RenderRegions(Operator):
 			else:
 				tmprow=nrow
 				tmparray = tmparray[:-1]
-				strScriptPy+="\tarrayImg.append(["+tmparray+"])"+"\n"
+				strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
 				tmparray=""
 #				tmparray+="[r\""+name+"\","+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",\""+imgExtension+"\","+str(crop)+"],"
 				tmparray+="["+str(int(cropW))+","+str(int(cropH))+","+str(int(cropX))+","+str(int(cropY))+","+str(nrow)+","+str(ncol)+",extension,"+str(crop)+"],"
 		
 		tmparray = tmparray[:-1]
 		##last item
-		strScriptPy+="\tarrayImg.append(["+tmparray+"])"+"\n"
+		strScriptPy+="arrayImg.append(["+tmparray+"])"+"\n"
+		strScriptPy+="\n"
+		
+		strScriptPy+="def oiioJoinImages(path,pre,post,extension):"+"\n"
+		strScriptPy+="\tprint(\"oiioJoinImages\")"+"\n"
+		strScriptPy+="\tglobal arrayImg"+"\n"
+		strScriptPy+="\tfullWidth="+str(scriptResx)+"\n"
+		strScriptPy+="\tfullHeight="+str(scriptResy)+"\n"
+		strScriptPy+="\tregionW="+str(int(cropW))+"\n"
+		strScriptPy+="\tregionH="+str(int(cropH))+"\n"
+		strScriptPy+="\t"+"\n"
+		strScriptPy+="\t#takes the first image as a reference, useful for openexr multilayer"+"\n"
+		strScriptPy+="\timg=arrayImg[0][0]"+"\n"
+		strScriptPy+="\trow=str(img[4])"+"\n"
+		strScriptPy+="\tcol=str(img[5])"+"\n"
+		strScriptPy+="\tname=path+pre+row+\"_\"+col+post+\".\"+extension"+"\n"
+		strScriptPy+="\tb0 = oiio.ImageBuf(name)"+"\n"
+		strScriptPy+="\n"
+		strScriptPy+="\troi = oiio.ROI()"+"\n"
+		strScriptPy+="\tfullspec = b0.spec().copy()"+"\n"
+		strScriptPy+="\tfullspec.width=fullWidth"+"\n"
+		strScriptPy+="\tfullspec.height=fullHeight"+"\n"
+		strScriptPy+="\t#create the container image where to copy all the regions"+"\n"
+		strScriptPy+="\tfull_size = oiio.ImageBuf(fullspec)"+"\n"
+		strScriptPy+="\toiio.ImageBufAlgo.zero(full_size)"+"\n"
 		strScriptPy+="\n"
 		strScriptPy+="\tnmcrop=\"__crop__\""+"\n"
 		strScriptPy+="\tnmrow=\"__row__\""+"\n"
@@ -1723,17 +1963,217 @@ class RenderRegions(Operator):
 		strScriptPy+="\text=\"\""+"\n"
 		strScriptPy+="\tstrImgCropped=\"\""+"\n"
 		strScriptPy+="\ttmprownm=\"\""+"\n"
-		strScriptPy+="\tstrImgRow=\"\""+"\n"
-##		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"."+imgExtension
-#		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"_"+str(new_nframe)+"."+imgExtension
-#		strScriptPy+="finalImg=r\""+finalImg+"\""+"\n"
 		strScriptPy+="\tfinalImg=path+pre+post+\"_joined\"+\".\"+extension"+"\n"
-		strScriptPy+="\t\n"
+		strScriptPy+="\t"+"\n"
 		strScriptPy+="\tfor arRow in arrayImg:"+"\n"
 		strScriptPy+="\t\tstrImgCropped=\"\""+"\n"
 		strScriptPy+="\t\tfor img in arRow:"+"\n"
 		strScriptPy+="\t\t\tif img[7]==True:"+"\n"
-#		strScriptPy+="\t\t\t\tname=img[0]"+"\n"
+		strScriptPy+="\t\t\t\tcropW=(img[0])"+"\n"
+		strScriptPy+="\t\t\t\tcropH=(img[1])"+"\n"
+		strScriptPy+="\t\t\t\tcropX=(img[2])"+"\n"
+		strScriptPy+="\t\t\t\tcropY=(img[3])"+"\n"
+		strScriptPy+="\t\t\t\trow=(img[4])"+"\n"
+		strScriptPy+="\t\t\t\tcol=(img[5])"+"\n"
+		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+		strScriptPy+="\t\t\t\tname=path+pre+str(row)+\"_\"+str(col)+post+\".\"+extension"+"\n"
+		strScriptPy+="\t\t\t\tbuffertmp = oiio.ImageBuf(name)"+"\n"
+		strScriptPy+="\t\t\t\tbuffertmp.set_full(cropX, (cropW+cropX), cropY, (cropH+cropY), 0, 1)"+"\n"
+		strScriptPy+="\t\t\t\txbegin=(cropW*col)-cropX"+"\n"
+		strScriptPy+="\t\t\t\tybegin=(cropH*row)-cropY"+"\n"
+		strScriptPy+="\t\t\t\toiio.ImageBufAlgo.paste(full_size, xbegin, ybegin, 0, 0, buffertmp, buffertmp.roi)"+"\n"
+		strScriptPy+="\t\t\telse:"+"\n"
+		
+		strScriptPy+="\t\t\t\tcropW=(img[0])"+"\n"
+		strScriptPy+="\t\t\t\tcropH=(img[1])"+"\n"
+		strScriptPy+="\t\t\t\trow=img[4]"+"\n"
+		strScriptPy+="\t\t\t\tcol=img[5]"+"\n"
+		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+		strScriptPy+="\t\t\t\tname=path+pre+str(row)+\"_\"+str(col)+post+\".\"+extension"+"\n"
+		strScriptPy+="\t\t\t\tbuffertmp = oiio.ImageBuf(name)"+"\n"
+		strScriptPy+="\t\t\t\txbegin=cropW*col"+"\n"
+		strScriptPy+="\t\t\t\tybegin=cropH*row"+"\n"
+		strScriptPy+="\t\t\t\toiio.ImageBufAlgo.paste(full_size, xbegin, ybegin, 0, 0, buffertmp)"+"\n"
+		strScriptPy+="\n"
+		strScriptPy+="\t\tnrow=nrow+1"+"\n"
+		strScriptPy+="\n"
+#		strScriptPy+="\tarrayImg=[]"+"\n"
+		strScriptPy+="\tfull_size.write(finalImg)"+"\n"
+		strScriptPy+="\n"
+
+		strScriptPy+="def PILcropJoinImages(path,pre,post,extension):"+"\n"
+		strScriptPy+="\tprint(\"PILcropJoinImages\")"+"\n"
+		strScriptPy+="\tglobal arrayImg"+"\n"
+		strScriptPy+="\tfullWidth="+str(scriptResx)+"\n"
+		strScriptPy+="\tfullHeight="+str(scriptResy)+"\n"
+		strScriptPy+="\tregionW="+str(int(cropW))+"\n"
+		strScriptPy+="\tregionH="+str(int(cropH))+"\n"
+		strScriptPy+="\tnmcrop=\"__crop__\""+"\n"
+		strScriptPy+="\tnmrow=\"__row__\""+"\n"
+		strScriptPy+="\tcmdcrop=\"\""+"\n"
+		strScriptPy+="\tnrow=0"+"\n"
+		strScriptPy+="\text=\"\""+"\n"
+		strScriptPy+="\tarImgCropped=[]"+"\n"
+		strScriptPy+="\timagesCropped=[]"+"\n"
+		strScriptPy+="\ttmprownm=\"\""+"\n"
+		strScriptPy+="\tarImgRow=[]"+"\n"
+		strScriptPy+="\tfinalImg=path+pre+post+\"_joined\"+\".\"+extension"+"\n"
+		strScriptPy+="\t"+"\n"
+		strScriptPy+="\tfor arRow in arrayImg:"+"\n"
+		strScriptPy+="\t\tarImgCropped=[]"+"\n"
+		strScriptPy+="\t\timagesCropped=[]"+"\n"
+		strScriptPy+="\t\ttmpnmcrop=\"\""+"\n"
+		strScriptPy+="\t\tfor img in arRow:"+"\n"
+		strScriptPy+="\t\t\tif img[7]==True:"+"\n"
+		strScriptPy+="\t\t\t\tcropW=(img[0])"+"\n"
+		strScriptPy+="\t\t\t\tcropH=(img[1])"+"\n"
+		strScriptPy+="\t\t\t\tcropX=(img[2])"+"\n"
+		strScriptPy+="\t\t\t\tcropY=(img[3])"+"\n"
+		strScriptPy+="\t\t\t\trow=str(img[4])"+"\n"
+		strScriptPy+="\t\t\t\tcol=str(img[5])"+"\n"
+		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+		strScriptPy+="\t\t\t\tname=path+pre+row+\"_\"+col+post+\".\"+extension"+"\n"
+		strScriptPy+="\t\t\t\ttmpnmcrop=nmcrop+row+\"-\"+col+\".\"+ext"+"\n"
+		strScriptPy+="\t\t\t\tprint(\"crop \"+row+\"-\"+col)"+"\n"
+		strScriptPy+="\t\t\t\timg = Image.open(name)"+"\n"
+		strScriptPy+="\t\t\t\timg_crop = img.crop((cropX, cropY, (cropX+cropW), (cropY+cropH))) "+"\n"
+		strScriptPy+="\t\t\t\timg_crop.save(tmpnmcrop)"+"\n"
+		strScriptPy+="\t\t\t\timg_crop.close()"+"\n"
+		strScriptPy+="\t\t\t\tarImgCropped.append(tmpnmcrop)"+"\n"
+		strScriptPy+="\t\t\telse:"+"\n"
+		strScriptPy+="\t\t\t\trow=str(img[4])"+"\n"
+		strScriptPy+="\t\t\t\tcol=str(img[5])"+"\n"
+		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+		strScriptPy+="\t\t\t\tname=path+pre+row+\"_\"+col+post+\".\"+extension"+"\n"
+		strScriptPy+="\t\t\t\tarImgCropped.append(name)"+"\n"
+		strScriptPy+="\t"+"\n"
+		strScriptPy+="\t\ttmprownm=str(nmrow)+str(nrow)+\".\"+str(ext)"+"\n"
+		strScriptPy+="\t\tarImgRow.append(tmprownm)"+"\n"
+		strScriptPy+="\t\tprint(\"append row \"+str(nrow))"+"\n"
+		strScriptPy+="\t\trow_imgtmp = Image.open(arImgCropped[0])"+"\n"
+		strScriptPy+="\t\trow_img=row_imgtmp.resize((fullWidth, regionH))"+"\n"
+		strScriptPy+="\t\trow_imgtmp.close()"+"\n"
+		strScriptPy+="\t\timagesCropped = [Image.open(x) for x in arImgCropped]"+"\n"
+		strScriptPy+="\t\tx_offset=0"+"\n"
+		strScriptPy+="\t\tfor im in imagesCropped:"+"\n"
+		strScriptPy+="\t\t\trow_img.paste(im, (x_offset,0))"+"\n"
+		strScriptPy+="\t\t\tx_offset += regionW"+"\n"
+		strScriptPy+="\t\t\tim.close()"+"\n"
+		strScriptPy+="\t\trow_img.save(tmprownm)"+"\n"
+		strScriptPy+="\t\trow_img.close()"+"\n"
+		strScriptPy+="\t\tnrow=nrow+1"+"\n"
+		strScriptPy+="\t\tif(tmpnmcrop!=\"\"):"+"\n"
+		strScriptPy+="\t\t\t#delete cropped images"+"\n"
+		strScriptPy+="\t\t\tprint(\"delete cropped images\")"+"\n"
+		strScriptPy+="\t\t\tfor im in arImgCropped:"+"\n"
+		strScriptPy+="\t\t\t\tos.remove(im)"+"\n"
+		strScriptPy+="\t\t"+"\n"
+		strScriptPy+="\tprint(\"append all\")"+"\n"
+		strScriptPy+="\tfinal_imgtmp = Image.open(arImgRow[0])"+"\n"
+		strScriptPy+="\tfinal_img=final_imgtmp.resize((fullWidth, fullHeight))"+"\n"
+		strScriptPy+="\tfinal_imgtmp.close()"+"\n"
+		strScriptPy+="\timagesRows = [Image.open(x) for x in arImgRow]"+"\n"
+		strScriptPy+="\ty_offset=0"+"\n"
+		strScriptPy+="\tfor im in imagesRows:"+"\n"
+		strScriptPy+="\t\tfinal_img.paste(im, (0,y_offset))"+"\n"
+		strScriptPy+="\t\ty_offset += regionH"+"\n"
+		strScriptPy+="\tfinal_img.save(finalImg)"+"\n"
+		strScriptPy+="\tfinal_img.close()"+"\n"
+		strScriptPy+="\t#delete rows images"+"\n"
+		strScriptPy+="\tprint(\"delete rows images\")"+"\n"
+		strScriptPy+="\tfor im in arImgRow:"+"\n"
+		strScriptPy+="\t\tos.remove(im)"+"\n"
+		strScriptPy+="\n"
+
+		
+#		strScriptPy+="def IMcropJoinImages(path,pre,post,extension):"+"\n"
+##		strScriptPy+="\tarrayImg=[]"+"\n"
+#		strScriptPy+="\tglobal arrayImg"+"\n"
+#		strScriptPy+="\tnmcrop=\"__crop__\""+"\n"
+#		strScriptPy+="\tnmrow=\"__row__\""+"\n"
+#		strScriptPy+="\tcmdcrop=\"\""+"\n"
+#		strScriptPy+="\tnrow=0"+"\n"
+#		strScriptPy+="\text=\"\""+"\n"
+#		strScriptPy+="\tstrImgCropped=\"\""+"\n"
+#		strScriptPy+="\ttmprownm=\"\""+"\n"
+#		strScriptPy+="\tstrImgRow=\"\""+"\n"
+###		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"."+imgExtension
+##		finalImg=outputFolderAbs+os.path.sep+bpy.path.basename(bpy.context.blend_data.filepath).split(".")[0]+"_"+str(new_nframe)+"."+imgExtension
+##		strScriptPy+="finalImg=r\""+finalImg+"\""+"\n"
+#		strScriptPy+="\tfinalImg=path+pre+post+\"_joined\"+\".\"+extension"+"\n"
+#		strScriptPy+="\t\n"
+#		strScriptPy+="\tfor arRow in arrayImg:"+"\n"
+#		strScriptPy+="\t\tstrImgCropped=\"\""+"\n"
+#		strScriptPy+="\t\tfor img in arRow:"+"\n"
+#		strScriptPy+="\t\t\tif img[7]==True:"+"\n"
+##		strScriptPy+="\t\t\t\tname=img[0]"+"\n"
+#		strScriptPy+="\t\t\t\tcropW=str(img[0])"+"\n"
+#		strScriptPy+="\t\t\t\tcropH=str(img[1])"+"\n"
+#		strScriptPy+="\t\t\t\tcropX=str(img[2])"+"\n"
+#		strScriptPy+="\t\t\t\tcropY=str(img[3])"+"\n"
+#		strScriptPy+="\t\t\t\trow=str(img[4])"+"\n"
+#		strScriptPy+="\t\t\t\tcol=str(img[5])"+"\n"
+#		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+#		strScriptPy+="\t\t\t\tname=path+pre+row+\"_\"+col+post+\".\"+extension"+"\n"
+#		strScriptPy+="\t\t\t\ttmpnmcrop=nmcrop+row+\"-\"+col+\".\"+ext"+"\n"
+#		if newmagick==1:
+#			strScriptPy+="\t\t\t\tcmdcrop=\"magick \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
+#			strScriptPy+="\t\t\t\t#cmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
+#		else:
+#			strScriptPy+="\t\t\t\t#cmdcrop=\"magick \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
+#			strScriptPy+="\t\t\t\tcmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
+#		strScriptPy+="\t\t\t\tprint(\"crop \"+row+\"-\"+col)"+"\n"
+#		strScriptPy+="\t\t\t\tsubprocess.call(cmdcrop, shell=True)"+"\n"
+##		strScriptPy+="\t\t\t\timg[0]=tmpnmcrop"+"\n"
+#		strScriptPy+="\t\t\t\tstrImgCropped+=tmpnmcrop+\" \""+"\n"
+#		strScriptPy+="\t\t\telse:"+"\n"
+#		strScriptPy+="\t\t\t\trow=str(img[4])"+"\n"
+#		strScriptPy+="\t\t\t\tcol=str(img[5])"+"\n"
+#		strScriptPy+="\t\t\t\tstrImgCropped+=(path+pre+row+\"_\"+col+post+\".\"+extension)+\" \""+"\n"
+#		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+#		strScriptPy+="\t"+"\n"
+#		strScriptPy+="\t\ttmprownm=str(nmrow)+str(nrow)+\".\"+str(ext)"+"\n"
+#		strScriptPy+="\t\tstrImgRow+=tmprownm+\" \""+"\n"
+#		if newmagick==1:
+#			strScriptPy+="\t\tcmdAppRow = \"magick  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
+#			strScriptPy+="\t\t#cmdAppRow = \"convert  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
+#		else:
+#			strScriptPy+="\t\t#cmdAppRow = \"magick  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
+#			strScriptPy+="\t\tcmdAppRow = \"convert  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
+#		strScriptPy+="\t\tprint(\"append row \"+str(nrow))"+"\n"
+#		strScriptPy+="\t\tsubprocess.call(cmdAppRow, shell=True)"+"\n"
+#		strScriptPy+="\t\tnrow=nrow+1"+"\n"
+#		strScriptPy+="\t"+"\n"
+#		if newmagick==1:
+#			strScriptPy+="\tcmdAppAll = \"magick  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
+#			strScriptPy+="\t#cmdAppAll = \"convert  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
+#		else:
+#			strScriptPy+="\t#cmdAppAll = \"magick  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
+#			strScriptPy+="\tcmdAppAll = \"convert  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
+#		strScriptPy+="\tprint(\"append all\")"+"\n"
+#		strScriptPy+="\tsubprocess.call(cmdAppAll, shell=True)"+"\n"
+##		strScriptPy+="\tarrayImg=[]"+"\n"
+#		strScriptPy+="\n"
+#		strScriptPy+="\n"
+		
+		strScriptPy+="def IMcropJoinImages(path,pre,post,extension):"+"\n"
+		strScriptPy+="\tprint(\"IMcropJoinImages\")"+"\n"
+		strScriptPy+="\tglobal arrayImg"+"\n"
+		strScriptPy+="\tnmcrop=\"__crop__\""+"\n"
+		strScriptPy+="\tnmrow=\"__row__\""+"\n"
+		strScriptPy+="\tcmdcrop=\"\""+"\n"
+		strScriptPy+="\tnrow=0"+"\n"
+		strScriptPy+="\text=\"\""+"\n"
+		strScriptPy+="\tarImgCropped=[]"+"\n"
+		strScriptPy+="\ttmprownm=\"\""+"\n"
+		strScriptPy+="\tarImgRow=[]"+"\n"
+		strScriptPy+="\tfinalImg=path+pre+post+\"_joined\"+\".\"+extension"+"\n"
+		strScriptPy+="\t"+"\n"
+		strScriptPy+="\tfor arRow in arrayImg:"+"\n"
+		strScriptPy+="\t\tarImgCropped=[]"+"\n"
+		strScriptPy+="\t\ttmpnmcrop=\"\""+"\n"
+		strScriptPy+="\t\tfor img in arRow:"+"\n"
+		strScriptPy+="\t\t\tif img[7]==True:"+"\n"
 		strScriptPy+="\t\t\t\tcropW=str(img[0])"+"\n"
 		strScriptPy+="\t\t\t\tcropH=str(img[1])"+"\n"
 		strScriptPy+="\t\t\t\tcropX=str(img[2])"+"\n"
@@ -1743,39 +2183,43 @@ class RenderRegions(Operator):
 		strScriptPy+="\t\t\t\text=img[6]"+"\n"
 		strScriptPy+="\t\t\t\tname=path+pre+row+\"_\"+col+post+\".\"+extension"+"\n"
 		strScriptPy+="\t\t\t\ttmpnmcrop=nmcrop+row+\"-\"+col+\".\"+ext"+"\n"
-		if newmagick==1:
-			strScriptPy+="\t\t\t\tcmdcrop=\"magick \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
-		else:
-			strScriptPy+="\t\t\t\tcmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
+		strScriptPy+="\t\t\t\tcmdcrop=\"convert \"+name+\" -crop \"+cropW+\"x\"+cropH+\"+\"+cropX+\"+\"+cropY+\" +repage \"+tmpnmcrop"+"\n"
 		strScriptPy+="\t\t\t\tprint(\"crop \"+row+\"-\"+col)"+"\n"
 		strScriptPy+="\t\t\t\tsubprocess.call(cmdcrop, shell=True)"+"\n"
-#		strScriptPy+="\t\t\t\timg[0]=tmpnmcrop"+"\n"
-		strScriptPy+="\t\t\t\tstrImgCropped+=tmpnmcrop+\" \""+"\n"
+		strScriptPy+="\t\t\t\tarImgCropped.append(tmpnmcrop)"+"\n"
 		strScriptPy+="\t\t\telse:"+"\n"
 		strScriptPy+="\t\t\t\trow=str(img[4])"+"\n"
 		strScriptPy+="\t\t\t\tcol=str(img[5])"+"\n"
-		strScriptPy+="\t\t\t\tstrImgCropped+=(path+pre+row+\"_\"+col+post+\".\"+extension)+\" \""+"\n"
 		strScriptPy+="\t\t\t\text=img[6]"+"\n"
+		strScriptPy+="\t\t\t\tname=path+pre+row+\"_\"+col+post+\".\"+extension"+"\n"
+		strScriptPy+="\t\t\t\tarImgCropped.append(name)"+"\n"
 		strScriptPy+="\t"+"\n"
 		strScriptPy+="\t\ttmprownm=str(nmrow)+str(nrow)+\".\"+str(ext)"+"\n"
-		strScriptPy+="\t\tstrImgRow+=tmprownm+\" \""+"\n"
-		if newmagick==1:
-			strScriptPy+="\t\tcmdAppRow = \"magick  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
-		else:
-			strScriptPy+="\t\tcmdAppRow = \"convert  \"+strImgCropped+\"  +append +repage \"+tmprownm"+"\n"
+		strScriptPy+="\t\tarImgRow.append(tmprownm)"+"\n"
+		strScriptPy+="\t\tcmdAppRow = \"convert \""+"\n"
+		strScriptPy+="\t\tfor im in arImgCropped:"+"\n"
+		strScriptPy+="\t\t\tcmdAppRow+=im+\" \""+"\n"
+		strScriptPy+="\t\tcmdAppRow+= \"  +append +repage \"+tmprownm"+"\n"
 		strScriptPy+="\t\tprint(\"append row \"+str(nrow))"+"\n"
 		strScriptPy+="\t\tsubprocess.call(cmdAppRow, shell=True)"+"\n"
 		strScriptPy+="\t\tnrow=nrow+1"+"\n"
-		strScriptPy+="\t"+"\n"
-		if newmagick==1:
-			strScriptPy+="\tcmdAppAll = \"magick  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
-		else:
-			strScriptPy+="\tcmdAppAll = \"convert  \"+strImgRow+\"  -append +repage \"+finalImg"+"\n"
+		strScriptPy+="\t\tif(tmpnmcrop!=\"\"):"+"\n"
+		strScriptPy+="\t\t\t#delete cropped images"+"\n"
+		strScriptPy+="\t\t\tprint(\"delete cropped images\")"+"\n"
+		strScriptPy+="\t\t\tfor im in arImgCropped:"+"\n"
+		strScriptPy+="\t\t\t\tos.remove(im)"+"\n"
+		strScriptPy+="\t\t"+"\n"
+		strScriptPy+="\tcmdAppAll = \"convert  \""+"\n"
+		strScriptPy+="\tfor im in arImgRow:"+"\n"
+		strScriptPy+="\t\tcmdAppAll+=(im+\" \")"+"\n"
+		strScriptPy+="\tcmdAppAll+=\"  -append +repage \"+finalImg"+"\n"
 		strScriptPy+="\tprint(\"append all\")"+"\n"
 		strScriptPy+="\tsubprocess.call(cmdAppAll, shell=True)"+"\n"
-		strScriptPy+="\tarrayImg=[]"+"\n"
-		strScriptPy+="\n"
-		strScriptPy+="\n"
+		strScriptPy+="\t#delete rows images"+"\n"
+		strScriptPy+="\tprint(\"delete rows images\")"+"\n"
+		strScriptPy+="\tfor im in arImgRow:"+"\n"
+		strScriptPy+="\t\tos.remove(im)"+"\n"
+		strScriptPy+=""+"\n"
 		
 		#main render image
 		outputFolderAbs=os.path.split( bpy.path.abspath(rnd.filepath) )[0]
@@ -1794,7 +2238,13 @@ class RenderRegions(Operator):
 		##start join main render
 		###############################################
 		strScriptPy+="print(\""+name+"\")"+"\n"
-		strScriptPy+="cropJoinImages(path,\""+name+"\",\"\",\""+imgExtension+"\")"+"\n"
+#		strScriptPy+="cropJoinImages(path,\""+name+"\",\"\",\""+imgExtension+"\")"+"\n"
+		strScriptPy+="if(oiioOK==True):"+"\n"
+		strScriptPy+="\toiioJoinImages(path,\""+name+"\",\"\",\""+imgExtension+"\")"+"\n"
+		strScriptPy+="elif(pilOK==True):"+"\n"
+		strScriptPy+="\tPILcropJoinImages(path,\""+name+"\",\"\",\""+imgExtension+"\")"+"\n"
+		strScriptPy+="else:"+"\n"
+		strScriptPy+="\tIMcropJoinImages(path,\""+name+"\",\"\",\""+imgExtension+"\")"+"\n"
 		###############################################
 		##end join main render
 		###############################################
@@ -1809,18 +2259,24 @@ class RenderRegions(Operator):
 		outputFolderAbsFO=""
 		if(scn.node_tree!=None):
 			for xfo in scn.node_tree.nodes:
-				if (xfo.type=='OUTPUT_FILE'):
+				if (xfo.type=='OUTPUT_FILE' and xfo.mute==False):
 					tempslotcount=len(xfo.file_slots)
 #					print(str(xfo.base_path))
 					outputFolderAbsFO=os.path.split( bpy.path.abspath(xfo.base_path) )[0]
-					outputFolderAbsFO+="/"
+#					outputFolderAbsFO+="/"
 #					print(str(outputFolderAbsFO))
 					strScriptPy+="path=r\""+str(outputFolderAbsFO)+"/\""+"\n"
 					for xSlot in range(tempslotcount):
 						if (xfo.inputs[xSlot].is_linked==True):
 							tmpFileOut = str( str(xfo.file_slots[xSlot].path) + str(el.cols) + "x" + str(el.rows) + "_" )
 							strScriptPy+="print(\"" + tmpFileOut + "\")"+"\n"
-							strScriptPy+="cropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
+#							strScriptPy+="cropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
+							strScriptPy+="if(oiioOK==True):"+"\n"
+							strScriptPy+="\toiioJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
+							strScriptPy+="elif(pilOK==True):"+"\n"
+							strScriptPy+="\tPILcropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
+							strScriptPy+="else:"+"\n"
+							strScriptPy+="\tIMcropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
 							strScriptPy+="\n"
 #		print("*********************")
 		#print("fileout_4x4_")
@@ -1981,6 +2437,26 @@ class Region:
 		}
 		return tmpOb
 
+#def checkoiio_update(self, context):
+#	addon_prefs = context.preferences.addons[__package__].preferences
+#	global oiioOK
+#	oiioOK=addon_prefs.checkOpenImageIO
+
+#class ControlRenderRegionPreferences(AddonPreferences):
+#	bl_idname = __package__
+#	checkOpenImageIO: BoolProperty(
+#		name="Check python module OpenImageIO",
+#		description="Check for the module 'OpenImageIO' when creating the reference image and python scripts. OpenImageIO is faster and supports openEXR multilayer, ImageMagick doesn't support openEXR multilayer but is easier to install",
+#		default=True,
+#		update=checkoiio_update)
+
+#	def draw(self, context):
+#		layout = self.layout
+#		col = layout.column()
+#		col.label(text="Show options")
+#		flow = col.grid_flow(columns=0, even_columns=True, even_rows=False, align=False)
+#		flow.prop(self, "checkOpenImageIO")
+
 classes = (
 	RenderRegions,
 	RenderRegionSettings,
@@ -2018,4 +2494,3 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
-
