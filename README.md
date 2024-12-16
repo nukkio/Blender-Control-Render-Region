@@ -5,6 +5,8 @@
 A Blender Addon to manage renders with [Render Region](https://docs.blender.org/manual/en/latest/editors/3dview/navigate/regions.html#render-region). 
 This addon divides the render of a project into regions and allows you to render all or only some of them.
 
+Install easily from [blender extension](https://extensions.blender.org/add-ons/control-render-regions/)
+
 Useful in several cases, for example:
 - Probability or need to interrupt very long renderings (computer availability problems, risk of power outages).
 - Divide the render of the same image among multiple computers, assigning each computer different regions.
