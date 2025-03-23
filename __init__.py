@@ -1466,9 +1466,9 @@ class RenderRegions(Operator):
 		strScript+="\n"
 		strScript+="#crop and join image"+"\n"
 		if(ps.RR_reg_columns>1 or ps.RR_reg_rows>1):
-			strScript+="python3 "+pyJoin+"\n"
+			strScript+="python3 \""+pyJoin+"\"\n"
 		else:
-			strScript+="#python3 "+pyJoin+"\n"
+			strScript+="#python3 \""+pyJoin+"\"\n"
 		
 		strScript+="\n"
 		#20241213
