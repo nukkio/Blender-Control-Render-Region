@@ -20,7 +20,7 @@
 #bl_info = {
 #	'name': 'Control Render Regions',
 #	'author': 'nukkio',
-#	'version': (1.0.6),
+#	'version': (1.0.7),
 #	'blender': (3, 0, 0),
 #	'location': 'Render > Render Regions',
 #	'description': 'Manage renders in region',
@@ -1402,6 +1402,9 @@ class RenderRegions(Operator):
 #			strScript+="strRowNames=()"+"\n"
 #			strScript+="tmpImgNamesPerRow=()"+"\n"
 		strScript+=""+"\n"
+		strScript+="frame="+str(arObRegions[0].currframe)+"\n"
+		strScript+="resperc="+str(arObRegions[0].resolutionPercent)+"\n"
+		strScript+=""+"\n"
 		tmprow=0
 #		for ireg in range(0,len(arObRegions)):
 		for ireg in arObRegions:
@@ -1442,9 +1445,11 @@ class RenderRegions(Operator):
 #			strScript+=ireg.imageName+" "
 			strScript+="\"$tmpImgName\" "
 			strScript+=str(ireg.resolution)+" "
-			strScript+=str(ireg.resolutionPercent)+" "
+#			strScript+=str(ireg.resolutionPercent)+" "
+			strScript+="$resperc"+" "
 			strScript+=str(ireg.usecrop)+" "
-			strScript+=str(ireg.currframe)+" "
+#			strScript+=str(ireg.currframe)+" "
+			strScript+="$frame"+" "
 			strScript+="\""+str(ireg.regionName)+"\" "
 			
 			
@@ -1872,6 +1877,7 @@ class RenderRegions(Operator):
 		imgExtension=(str.lower(rnd.file_extension))[1:]
 
 		strScriptPy+="\n"
+		strScriptPy+="scale="+(str(rnd.resolution_percentage/100))+"\n"
 		strScriptPy+="extension=\""+imgExtension+"\""+"\n"
 		strScriptPy+="arrayImg=[]"+"\n"
 #		strScriptPy+="\n"
@@ -1936,10 +1942,10 @@ class RenderRegions(Operator):
 		strScriptPy+="def oiioJoinImages(path,pre,post,extension):"+"\n"
 		strScriptPy+="\tprint(\"oiioJoinImages\")"+"\n"
 		strScriptPy+="\tglobal arrayImg"+"\n"
-		strScriptPy+="\tfullWidth="+str(scriptResx)+"\n"
-		strScriptPy+="\tfullHeight="+str(scriptResy)+"\n"
-		strScriptPy+="\tregionW="+str(int(cropW))+"\n"
-		strScriptPy+="\tregionH="+str(int(cropH))+"\n"
+		strScriptPy+="\tfullWidth=int("+str(scriptResx)+"*scale)\n"
+		strScriptPy+="\tfullHeight=int("+str(scriptResy)+"*scale)\n"
+		strScriptPy+="\tregionW=int("+str(int(cropW))+"*scale)\n"
+		strScriptPy+="\tregionH=int("+str(int(cropH))+"*scale)\n"
 		strScriptPy+="\t"+"\n"
 		strScriptPy+="\t#takes the first image as a reference, useful for openexr multilayer"+"\n"
 		strScriptPy+="\timg=arrayImg[0][0]"+"\n"
@@ -1969,10 +1975,10 @@ class RenderRegions(Operator):
 		strScriptPy+="\t\tstrImgCropped=\"\""+"\n"
 		strScriptPy+="\t\tfor img in arRow:"+"\n"
 		strScriptPy+="\t\t\tif img[7]==True:"+"\n"
-		strScriptPy+="\t\t\t\tcropW=(img[0])"+"\n"
-		strScriptPy+="\t\t\t\tcropH=(img[1])"+"\n"
-		strScriptPy+="\t\t\t\tcropX=(img[2])"+"\n"
-		strScriptPy+="\t\t\t\tcropY=(img[3])"+"\n"
+		strScriptPy+="\t\t\t\tcropW=int((img[0])*scale)"+"\n"
+		strScriptPy+="\t\t\t\tcropH=int((img[1])*scale)"+"\n"
+		strScriptPy+="\t\t\t\tcropX=int((img[2])*scale)"+"\n"
+		strScriptPy+="\t\t\t\tcropY=int((img[3])*scale)"+"\n"
 		strScriptPy+="\t\t\t\trow=(img[4])"+"\n"
 		strScriptPy+="\t\t\t\tcol=(img[5])"+"\n"
 		strScriptPy+="\t\t\t\text=img[6]"+"\n"
@@ -1984,8 +1990,8 @@ class RenderRegions(Operator):
 		strScriptPy+="\t\t\t\toiio.ImageBufAlgo.paste(full_size, xbegin, ybegin, 0, 0, buffertmp, buffertmp.roi)"+"\n"
 		strScriptPy+="\t\t\telse:"+"\n"
 		
-		strScriptPy+="\t\t\t\tcropW=(img[0])"+"\n"
-		strScriptPy+="\t\t\t\tcropH=(img[1])"+"\n"
+		strScriptPy+="\t\t\t\tcropW=int((img[0])*scale)"+"\n"
+		strScriptPy+="\t\t\t\tcropH=int((img[1])*scale)"+"\n"
 		strScriptPy+="\t\t\t\trow=img[4]"+"\n"
 		strScriptPy+="\t\t\t\tcol=img[5]"+"\n"
 		strScriptPy+="\t\t\t\text=img[6]"+"\n"
@@ -2004,10 +2010,10 @@ class RenderRegions(Operator):
 		strScriptPy+="def PILcropJoinImages(path,pre,post,extension):"+"\n"
 		strScriptPy+="\tprint(\"PILcropJoinImages\")"+"\n"
 		strScriptPy+="\tglobal arrayImg"+"\n"
-		strScriptPy+="\tfullWidth="+str(scriptResx)+"\n"
-		strScriptPy+="\tfullHeight="+str(scriptResy)+"\n"
-		strScriptPy+="\tregionW="+str(int(cropW))+"\n"
-		strScriptPy+="\tregionH="+str(int(cropH))+"\n"
+		strScriptPy+="\tfullWidth=int("+str(scriptResx)+"*scale)\n"
+		strScriptPy+="\tfullHeight=int("+str(scriptResy)+"*scale)\n"
+		strScriptPy+="\tregionW=int("+str(int(cropW))+"*scale)\n"
+		strScriptPy+="\tregionH=int("+str(int(cropH))+"*scale)\n"
 		strScriptPy+="\tnmcrop=\"__crop__\""+"\n"
 		strScriptPy+="\tnmrow=\"__row__\""+"\n"
 		strScriptPy+="\tcmdcrop=\"\""+"\n"
@@ -2025,10 +2031,10 @@ class RenderRegions(Operator):
 		strScriptPy+="\t\ttmpnmcrop=\"\""+"\n"
 		strScriptPy+="\t\tfor img in arRow:"+"\n"
 		strScriptPy+="\t\t\tif img[7]==True:"+"\n"
-		strScriptPy+="\t\t\t\tcropW=(img[0])"+"\n"
-		strScriptPy+="\t\t\t\tcropH=(img[1])"+"\n"
-		strScriptPy+="\t\t\t\tcropX=(img[2])"+"\n"
-		strScriptPy+="\t\t\t\tcropY=(img[3])"+"\n"
+		strScriptPy+="\t\t\t\tcropW=int((img[0])*scale)"+"\n"
+		strScriptPy+="\t\t\t\tcropH=int((img[1])*scale)"+"\n"
+		strScriptPy+="\t\t\t\tcropX=int((img[2])*scale)"+"\n"
+		strScriptPy+="\t\t\t\tcropY=int((img[3])*scale)"+"\n"
 		strScriptPy+="\t\t\t\trow=str(img[4])"+"\n"
 		strScriptPy+="\t\t\t\tcol=str(img[5])"+"\n"
 		strScriptPy+="\t\t\t\text=img[6]"+"\n"
