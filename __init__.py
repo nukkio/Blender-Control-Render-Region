@@ -1218,7 +1218,7 @@ class RenderRegions(Operator):
 		strScript+="\n"
 		strScript+="::crop and join image"+"\n"
 #		strScript+="::python "+pyJoin+"\n"
-		strScript+="python "+pyJoin+"\n"
+		strScript+="python \""+pyJoin+"\"\n"
 		
 		strScript+="\n"
 		strScript+="echo \"done\"\n"
