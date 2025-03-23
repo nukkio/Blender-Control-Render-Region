@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "Control_Render_Regions"
-version = "1.0.6"
+version = "1.0.8"
 name = "Control Render Regions"
 tagline = "Manage renders in region"
 maintainer = "nukkio <nukkiogm@gmail.com>"
@@ -16,10 +16,22 @@ license = [
   "SPDX:GPL-3.0-or-later",
 ]
 copyright = [
-  "2019-2024 nukkio",
+  "2019-2025 nukkio",
+]
+platforms = ["windows-x64", "macos-arm64", "macos-x64", "linux-x64"]
+wheels = [
+	"./wheels/pillow-11.0.0-cp311-cp311-win_amd64.whl",
+	"./wheels/pillow-11.0.0-cp311-cp311-manylinux_2_28_x86_64.whl",
+	"./wheels/pillow-11.0.0-cp311-cp311-macosx_11_0_arm64.whl",
+	"./wheels/pillow-11.0.0-cp311-cp311-macosx_10_10_x86_64.whl",
 ]
 
 [permissions]
-files = "Create script to render from terminal and render image"
+files = "Create script to render from terminal and render regions"
+
+
+
+
+
 
 
