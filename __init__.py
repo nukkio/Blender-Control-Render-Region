@@ -1389,7 +1389,7 @@ class RenderRegions(Operator):
 		strScript+="echo \"\" >> $pyfile"+"\n"
 #		strScript+="renderregion $pyfile $imageName $curframe"+"\n"
 		######call the active scene when the script was created
-		strScript+="$blenderPath -b \"$file\" -x 1 -o \"$imageName\" -S '"+scn.name+"' -P $pyfile -f $curframe"+"\n"
+		strScript+="$blenderPath -b --factory-startup \"$file\" -x 1 -o \"$imageName\" -S '"+scn.name+"' -P $pyfile -f $curframe"+"\n"
 		######
 		
 		strScript+="}"+"\n"
