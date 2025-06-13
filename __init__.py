@@ -20,7 +20,7 @@
 #bl_info = {
 #	'name': 'Control Render Regions',
 #	'author': 'nukkio',
-#	'version': (1.0.7),
+#	'version': (1.0.9),
 #	'blender': (3, 0, 0),
 #	'location': 'Render > Render Regions',
 #	'description': 'Manage renders in region',
