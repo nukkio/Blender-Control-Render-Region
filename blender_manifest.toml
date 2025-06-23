@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "Control_Render_Regions"
-version = "1.0.8"
+version = "1.0.9"
 name = "Control Render Regions"
 tagline = "Manage renders in region"
 maintainer = "nukkio <nukkiogm@gmail.com>"
