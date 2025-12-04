@@ -20,8 +20,8 @@
 #bl_info = {
 #	'name': 'Control Render Regions',
 #	'author': 'nukkio',
-#	'version': (1.0.9),
-#	'blender': (3, 0, 0),
+#	'version': (1.0.10),
+#	'blender': (4, 0, 0),
 #	'location': 'Render > Render Regions',
 #	'description': 'Manage renders in region',
 #	'wiki_url': '',
@@ -69,6 +69,8 @@ try:
 except ImportError:
 #	print("PIL ko")
 	pilOK=False
+
+version5=(bpy.app.version >= (5,0,0))
 
 #>>> import os
 #>>> os.name
@@ -954,16 +956,25 @@ class RenderRegions(Operator):
 #		print("event POST---------------"+str(self.rendering))
 #		scene.renderregionsettings.RR_msg2="rendered :"+scene.renderregionsettings.RR_activeRendername
 #		print("**************end")
-		for x in self.saveFileOutputs:
-			tempNodeFO=scene.node_tree.nodes[str(x[0])]
-			tempslotcount=len(tempNodeFO.file_slots)
-#			print("riprendo fo= " + str(tempNodeFO) + " - slots=" + str(tempslotcount))
-			for xSlot in range(tempslotcount):
-#				print("prima:" + str(tempNodeFO.file_slots[xSlot].path))
-#				print("vecchio:" + str(x[xSlot+1]))
-				tempNodeFO.file_slots[xSlot].path=str(x[xSlot+1])
-#				print("dopo:" + str(tempNodeFO.file_slots[xSlot].path))
-#		print("**************end")
+
+		if(version5==False):
+			for x in self.saveFileOutputs:
+				tempNodeFO=scene.node_tree.nodes[str(x[0])]
+				tempslotcount=len(tempNodeFO.file_slots)
+	#			print("riprendo fo= " + str(tempNodeFO) + " - slots=" + str(tempslotcount))
+				for xSlot in range(tempslotcount):
+	#				print("prima:" + str(tempNodeFO.file_slots[xSlot].path))
+	#				print("vecchio:" + str(x[xSlot+1]))
+					tempNodeFO.file_slots[xSlot].path=str(x[xSlot+1])
+	#				print("dopo:" + str(tempNodeFO.file_slots[xSlot].path))
+	#		print("**************end")
+		else:
+			#version 5
+			for x in self.saveFileOutputs:
+				tempNodeFO=scene.compositing_node_group.nodes[str(x[0])]
+				tempslotcount=len(tempNodeFO.file_output_items)
+				for xSlot in range(tempslotcount):
+					tempNodeFO.file_output_items[xSlot].name=str(x[xSlot+1])
 
 	def cancelled(self, scene, context=None):
 #		print("event CANCELLED")
@@ -1271,20 +1282,29 @@ class RenderRegions(Operator):
 		strScript+="::echo scn.eevee.taa_render_samples=%eeveeSamples% >> \"%pyfile%\""+"\n"
 		strScript+="::echo scn.render.engine='%renderEngine%' >> \"%pyfile%\""+"\n"
 		
-		strScript+="echo if(scn.node_tree!=None): >> \"%pyfile%\""+"\n"
-		strScript+="echo     for xfo in scn.node_tree.nodes: >> \"%pyfile%\""+"\n"
-		strScript+="echo         if (xfo.type=='OUTPUT_FILE'): >> \"%pyfile%\""+"\n"
-		strScript+="echo             tempslotcount=len(xfo.file_slots) >> \"%pyfile%\""+"\n"
-		strScript+="echo             for xSlot in range(tempslotcount): >> \"%pyfile%\""+"\n"
-		strScript+="echo                 xfo.file_slots[xSlot].path=xfo.file_slots[xSlot].path + '%foPath%' + '_' >> \"%pyfile%\""+"\n"
-		
-		strScript+="CALL \"%blenderPath%\" -b \"%file%\" -x 1 -o \"%imageName%\" -P \"%pyfile%\" -f %curframe%"+"\n"
+		if(version5==False):
+			strScript+="echo if(scn.node_tree!=None): >> \"%pyfile%\""+"\n"
+			strScript+="echo     for xfo in scn.node_tree.nodes: >> \"%pyfile%\""+"\n"
+			strScript+="echo         if (xfo.type=='OUTPUT_FILE'): >> \"%pyfile%\""+"\n"
+			strScript+="echo             tempslotcount=len(xfo.file_slots) >> \"%pyfile%\""+"\n"
+			strScript+="echo             for xSlot in range(tempslotcount): >> \"%pyfile%\""+"\n"
+			strScript+="echo                 xfo.file_slots[xSlot].path=xfo.file_slots[xSlot].path + '%foPath%' + '_' >> \"%pyfile%\""+"\n"
+		else:
+			#version 5.0
+			strScript+="echo if(scn.compositing_node_group!=None): >> \"%pyfile%\""+"\n"
+			strScript+="echo     for xfo in scn.compositing_node_group.nodes: >> \"%pyfile%\""+"\n"
+			strScript+="echo         if (xfo.type=='OUTPUT_FILE'): >> \"%pyfile%\""+"\n"
+			strScript+="echo             tempslotcount=len(xfo.file_output_items) >> \"%pyfile%\""+"\n"
+			strScript+="echo             for xSlot in range(tempslotcount): >> \"%pyfile%\""+"\n"
+			strScript+="echo                 xfo.file_output_items[xSlot].name=xfo.file_output_items[xSlot].name + '%foPath%' + '_' >> \"%pyfile%\""+"\n"
+			
+		strScript+="CALL \"%blenderPath%\" -b --factory-startup \"%file%\" -x 1 -o \"%imageName%\" -P \"%pyfile%\" -f %curframe%"+"\n"
 		strScript+="ENDLOCAL"+"\n"
 		strScript+="EXIT /B 0"+"\n"
 
 		strScript+="\n"
 		return strScript
-
+		
 	def getScriptShell(self,context,arObRegions):
 		scn = context.scene
 		rnd = context.scene.render
@@ -1379,12 +1399,21 @@ class RenderRegions(Operator):
 		strScript+="#echo \"scn.eevee.taa_render_samples=\"$eeveeSamples >> $pyfile"+"\n"
 		strScript+="#echo \"scn.render.engine='\"$renderEngine\"'\" >> $pyfile"+"\n"
 		
-		strScript+="echo \"if(scn.node_tree!=None):\" >> $pyfile"+"\n"
-		strScript+="echo \"    for xfo in scn.node_tree.nodes:\" >> $pyfile"+"\n"
-		strScript+="echo \"        if (xfo.type=='OUTPUT_FILE'):\" >> $pyfile"+"\n"
-		strScript+="echo \"            tempslotcount=len(xfo.file_slots)\" >> $pyfile"+"\n"
-		strScript+="echo \"            for xSlot in range(tempslotcount):\" >> $pyfile"+"\n"
-		strScript+="echo \"                xfo.file_slots[xSlot].path=xfo.file_slots[xSlot].path + '\"$foPath\"' + '_'\" >> $pyfile"+"\n"
+		if(version5==False):
+			strScript+="echo \"if(scn.node_tree!=None):\" >> $pyfile"+"\n"
+			strScript+="echo \"    for xfo in scn.node_tree.nodes:\" >> $pyfile"+"\n"
+			strScript+="echo \"        if (xfo.type=='OUTPUT_FILE'):\" >> $pyfile"+"\n"
+			strScript+="echo \"            tempslotcount=len(xfo.file_slots)\" >> $pyfile"+"\n"
+			strScript+="echo \"            for xSlot in range(tempslotcount):\" >> $pyfile"+"\n"
+			strScript+="echo \"                xfo.file_slots[xSlot].path=xfo.file_slots[xSlot].path + '\"$foPath\"' + '_'\" >> $pyfile"+"\n"
+		else:
+			#version 5.0
+			strScript+="echo \"if(scn.compositing_node_group!=None):\" >> $pyfile"+"\n"
+			strScript+="echo \"    for xfo in scn.compositing_node_group.nodes:\" >> $pyfile"+"\n"
+			strScript+="echo \"        if (xfo.type=='OUTPUT_FILE'):\" >> $pyfile"+"\n"
+			strScript+="echo \"            tempslotcount=len(xfo.file_output_items)\" >> $pyfile"+"\n"
+			strScript+="echo \"            for xSlot in range(tempslotcount):\" >> $pyfile"+"\n"
+			strScript+="echo \"                xfo.file_output_items[xSlot].name=xfo.file_output_items[xSlot].name + '\"$foPath\"' + '_'\" >> $pyfile"+"\n"
 		
 		strScript+="echo \"\" >> $pyfile"+"\n"
 #		strScript+="renderregion $pyfile $imageName $curframe"+"\n"
@@ -1528,15 +1557,21 @@ class RenderRegions(Operator):
 				#ciclo per cambiare i path nei fileoutput
 				#alla fine del render dovrebbero essere rimessi a posto
 #				print("****----****----****----****----")
-				for x in self.saveFileOutputs:
-					tempNodeFO=scn.node_tree.nodes[str(x[0])]
-					tempslotcount=len(tempNodeFO.file_slots)
-	#				print("cambio fo= " + str(tempNodeFO) + " - slots=" + str(tempslotcount))
-					for xSlot in range(tempslotcount):
-						tempNodeFO.file_slots[xSlot].path=str(x[xSlot+1]) + tempRegionData.regionName + "_"
+				if(version5==False):
+					for x in self.saveFileOutputs:
+						tempNodeFO=scn.node_tree.nodes[str(x[0])]
+						tempslotcount=len(tempNodeFO.file_slots)
+		#				print("cambio fo= " + str(tempNodeFO) + " - slots=" + str(tempslotcount))
+						for xSlot in range(tempslotcount):
+							tempNodeFO.file_slots[xSlot].path=str(x[xSlot+1]) + tempRegionData.regionName + "_"
+				else:
+					#version 5
+					for x in self.saveFileOutputs:
+						tempNodeFO=scn.compositing_node_group.nodes[str(x[0])]
+						tempslotcount=len(tempNodeFO.file_output_items)
+						for xSlot in range(tempslotcount):
+							tempNodeFO.file_output_items[xSlot].name=str(x[xSlot+1]) + tempRegionData.regionName + "_"
 				#####################
-
-
 				
 				if (ps.RR_dim_region==True):
 					rnd.resolution_percentage=ps.RR_multiplier*100
@@ -1611,18 +1646,33 @@ class RenderRegions(Operator):
 #		print("change FileOutput........")
 		self.saveFileOutputs=[]
 		tempArrFO=[]
+		
 		#ciclo per cambiare i path all'eventuale file output
-		if(scn.node_tree!=None):
-			for xfo in scn.node_tree.nodes:
-				if (xfo.type=="OUTPUT_FILE"):
-					tempArrFO=[]
-					tempArrFO.append(xfo.name)
-					tempslotcount=len(xfo.file_slots)
-	#				print("registro fo= " + str(xfo.name) + " - slots=" + str(tempslotcount))
-					for xSlot in range(tempslotcount):
-						oldFOpath=xfo.file_slots[xSlot].path
-						tempArrFO.append(oldFOpath)
-					self.saveFileOutputs.append(tempArrFO)
+		if(version5==False):
+			if(scn.node_tree!=None):
+				for xfo in scn.node_tree.nodes:
+					if (xfo.type=="OUTPUT_FILE"):
+						tempArrFO=[]
+						tempArrFO.append(xfo.name)
+						tempslotcount=len(xfo.file_slots)
+		#				print("registro fo= " + str(xfo.name) + " - slots=" + str(tempslotcount))
+						for xSlot in range(tempslotcount):
+							oldFOpath=xfo.file_slots[xSlot].path
+							tempArrFO.append(oldFOpath)
+						self.saveFileOutputs.append(tempArrFO)
+		else:
+			#version 5.0
+			if(scn.compositing_node_group!=None):
+				#change fileoutput in active compositor
+				for xfo in scn.compositing_node_group.nodes:
+					if (xfo.type=="OUTPUT_FILE"):
+						tempArrFO=[]
+						tempArrFO.append(xfo.name)
+						tempslotcount=len(xfo.file_output_items)
+						for xSlot in range(tempslotcount):
+							oldFOpath=xfo.file_output_items[xSlot].name
+							tempArrFO.append(oldFOpath)
+						self.saveFileOutputs.append(tempArrFO)
 		
 		##todo
 #		if bpy.data.scenes["Scene"].render.image_settings.color_mode=="RGBA"
@@ -1800,6 +1850,41 @@ class RenderRegions(Operator):
 			print("error create regions, check values")
 			self.report({'ERROR'},"Error create regions, check values")
 		return [reg,errorInsertRegions]
+	
+	def extensionFromFormat(self, frmt):
+		extns=""
+		match frmt:
+			case "JPEG":
+				extns="jpg"
+			case "OPEN_EXR":
+				extns="exr"
+			case "PNG":
+				extns="png"
+			case "WEBP":
+				extns="webp"
+			case "BMP":
+				extns="bmp"
+			case "CINEON":
+				extns="cin"
+			case "DPX":
+				extns="dpx"
+			case "IRIS":
+				extns="rgb"
+			case "JPEG2000":
+				extns="jp2"
+			case "HDR":
+				extns="hdr"
+			case "TARGA":
+				extns="tga"
+			case "TARGA_RAW":
+				extns="tga"
+			case "TIFF":
+				extns="tif"
+			case "OPEN_EXR_MULTILAYER":
+				extns="exr"
+			case _:
+				extns="png"
+		return extns
 
 	def writeJoinPython(self, context):
 		scn = context.scene
@@ -2263,27 +2348,64 @@ class RenderRegions(Operator):
 		new_nframeFileout = f'{cf:0{4}d}'
 		tmpFileOut=""
 		outputFolderAbsFO=""
-		if(scn.node_tree!=None):
-			for xfo in scn.node_tree.nodes:
-				if (xfo.type=='OUTPUT_FILE' and xfo.mute==False):
-					tempslotcount=len(xfo.file_slots)
-#					print(str(xfo.base_path))
-					outputFolderAbsFO=os.path.split( bpy.path.abspath(xfo.base_path) )[0]
-#					outputFolderAbsFO+="/"
-#					print(str(outputFolderAbsFO))
-					strScriptPy+="path=r\""+str(outputFolderAbsFO)+"/\""+"\n"
-					for xSlot in range(tempslotcount):
-						if (xfo.inputs[xSlot].is_linked==True):
-							tmpFileOut = str( str(xfo.file_slots[xSlot].path) + str(el.cols) + "x" + str(el.rows) + "_" )
-							strScriptPy+="print(\"" + tmpFileOut + "\")"+"\n"
-#							strScriptPy+="cropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
-							strScriptPy+="if(oiioOK==True):"+"\n"
-							strScriptPy+="\toiioJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
-							strScriptPy+="elif(pilOK==True):"+"\n"
-							strScriptPy+="\tPILcropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
-							strScriptPy+="else:"+"\n"
-							strScriptPy+="\tIMcropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+imgExtension+"\")"+"\n"
-							strScriptPy+="\n"
+		if(version5==False):
+			if(scn.node_tree!=None):
+				for xfo in scn.node_tree.nodes:
+					if (xfo.type=='OUTPUT_FILE' and xfo.mute==False):
+						tempslotcount=len(xfo.file_slots)
+	#					print(str(xfo.base_path))
+						outputFolderAbsFO=os.path.split( bpy.path.abspath(xfo.base_path) )[0]
+	#					outputFolderAbsFO+="/"
+	#					print(str(outputFolderAbsFO))
+						strScriptPy+="path=r\""+str(outputFolderAbsFO)+"/\""+"\n"
+						#get extension from node
+						newext=self.extensionFromFormat(xfo.format.file_format)
+#						print("newext="+newext)
+						for xSlot in range(tempslotcount):
+							if (xfo.inputs[xSlot].is_linked==True):
+								#check override format
+								if(xfo.file_slots[xSlot].use_node_format==False):
+									newext=self.extensionFromFormat(xfo.file_slots[xSlot].format.file_format)
+								#####
+								tmpFileOut = str( str(xfo.file_slots[xSlot].path) + str(el.cols) + "x" + str(el.rows) + "_" )
+								strScriptPy+="print(\"" + tmpFileOut + "\")"+"\n"
+	#							strScriptPy+="cropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+newext+"\")"+"\n"
+								strScriptPy+="if(oiioOK==True):"+"\n"
+								strScriptPy+="\toiioJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+newext+"\")"+"\n"
+								strScriptPy+="elif(pilOK==True):"+"\n"
+								strScriptPy+="\tPILcropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+newext+"\")"+"\n"
+								strScriptPy+="else:"+"\n"
+								strScriptPy+="\tIMcropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+newext+"\")"+"\n"
+								strScriptPy+="\n"
+			
+		else:
+			#version 5.0
+			if(scn.compositing_node_group!=None):
+				for xfo in scn.compositing_node_group.nodes:
+					if (xfo.type=='OUTPUT_FILE' and xfo.mute==False):
+						tempslotcount=len(xfo.file_output_items)
+						outputFolderAbsFO=os.path.split( bpy.path.abspath(xfo.directory) )[0]
+						strScriptPy+="path=r\""+str(outputFolderAbsFO)+"/\""+"\n"
+						#get extension from node
+						newext=self.extensionFromFormat(xfo.format.file_format)
+#						print("newext="+newext)
+						################
+						for xSlot in range(tempslotcount):
+							if (xfo.inputs[xSlot].is_linked==True):
+								#check override format
+								if(xfo.file_output_items[xSlot].override_node_format==True):
+									newext=self.extensionFromFormat(xfo.file_output_items[xSlot].format.file_format)
+								#####
+								tmpFileOut = str( str(xfo.file_name) + str(xfo.file_output_items[xSlot].name) + str(el.cols) + "x" + str(el.rows) + "_" )
+								strScriptPy+="print(\"" + tmpFileOut + "\")"+"\n"
+								strScriptPy+="if(oiioOK==True):"+"\n"
+								strScriptPy+="\toiioJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+newext+"\")"+"\n"
+								strScriptPy+="elif(pilOK==True):"+"\n"
+								strScriptPy+="\tPILcropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+newext+"\")"+"\n"
+								strScriptPy+="else:"+"\n"
+								strScriptPy+="\tIMcropJoinImages(path,\""+tmpFileOut+"\",\"_"+str(new_nframeFileout)+"\",\""+newext+"\")"+"\n"
+								strScriptPy+="\n"
+
 #		print("*********************")
 		#print("fileout_4x4_")
 		#cropJoinImages(path,"fileout_4x4_","_0000","png")
