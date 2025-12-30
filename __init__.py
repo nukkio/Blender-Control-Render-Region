@@ -211,6 +211,13 @@ class RenderRegionSettings(PropertyGroup):
 		name = "Regions to render",
 		description = "Regions to render: all= render all regions; x,y,z= render the region number x, y and z; x-z= render the region from number x to z",
 		default = "all")
+	
+	RR_overridecrop: bpy.props.BoolProperty(
+		name="Crop to Render Regions (override)",
+		default=True,
+		description="Crops the rendered image to the size of the render region (normally ok for render region), instead of rendering a full resolution image with a transparent background around it, if unchecked (useful for rendering just one region and placing it already in place in Compositor or VSE).",
+	)	
+
 
 #	RR_save_region:BoolProperty(
 #		name = "Join and save",
@@ -326,20 +333,20 @@ class RENDER_PT_Region(Panel):
 		rowList.append(row3)
 		row4 =  box.row()
 		rowList.append(row4)
-		
-		box = layout.box()
 		row5 =  box.row()
 		rowList.append(row5)
+		
+		box = layout.box()
 		row6 =  box.row()
 		rowList.append(row6)
 		row7 =  box.row()
 		rowList.append(row7)
+		row8 =  box.row()
+		rowList.append(row8)
 #		layout.row().separator()		
 
 		box = layout.box()
 		
-		row8 =  box.row()
-		rowList.append(row8)
 		row9 =  box.row()
 		rowList.append(row9)
 		row10 =  box.row()
@@ -379,6 +386,13 @@ class RENDER_PT_Region(Panel):
 		
 		rn+=1
 		rowList[rn].prop(ps, "RR_who_region")
+		#RR_overridecrop
+		rn+=1
+#		sub = rowList[rn].row()
+#		rowList[rn].prop(ps, "RR_overridecrop")
+		rowList[rn].prop(ps, "RR_overridecrop")
+#		row.active=rftsettings.rft_onlycurrent==False
+#		row.enabled=rftsettings.rft_onlycurrent==False
 		
 		####parte margini
 		rn+=1
@@ -1054,7 +1068,9 @@ class RenderRegions(Operator):
 				ret_usecrop = True
 			else:
 				ret_resolutionPercent=rnd.resolution_percentage
-				ret_usecrop = rnd.use_crop_to_border
+				#ret_usecrop = rnd.use_crop_to_border
+				#2025-12-30
+				ret_usecrop = ps.RR_overridecrop
 			
 			tmpOb.regionarea=ret_regionArea
 			tmpOb.imageName=ret_imageName
@@ -1124,7 +1140,7 @@ class RenderRegions(Operator):
 		#'Windows'
 		#'Darwin'
 		platSyst=platform.system()
-		print("platSyst",platSyst)
+#		print("platSyst",platSyst)
 		scriptExt=".sh"
 #		platSyst="Windows"
 		# platSyst="Linux"
@@ -1229,7 +1245,10 @@ class RenderRegions(Operator):
 		strScript+="\n"
 		strScript+="::crop and join image"+"\n"
 #		strScript+="::python "+pyJoin+"\n"
-		strScript+="python \""+pyJoin+"\"\n"
+		if(ps.RR_reg_columns>1 or ps.RR_reg_rows>1) and (ps.RR_overridecrop==True):
+			strScript+="python \""+pyJoin+"\"\n"
+		else:
+			strScript+="::python \""+pyJoin+"\"\n"
 		
 		strScript+="\n"
 		strScript+="echo \"done\"\n"
@@ -1494,7 +1513,7 @@ class RenderRegions(Operator):
 		
 		strScript+="\n"
 		strScript+="#crop and join image"+"\n"
-		if(ps.RR_reg_columns>1 or ps.RR_reg_rows>1):
+		if(ps.RR_reg_columns>1 or ps.RR_reg_rows>1) and (ps.RR_overridecrop==True):
 			strScript+="python3 \""+pyJoin+"\"\n"
 		else:
 			strScript+="#python3 \""+pyJoin+"\"\n"
@@ -1697,7 +1716,11 @@ class RenderRegions(Operator):
 		self.max_y = self.delta_y
 		
 		rnd.use_border = 1
-		rnd.use_crop_to_border=True
+#		rnd.use_crop_to_border=True
+		#2025-12-30 option override use crop
+		rnd.use_crop_to_border=ps.RR_overridecrop
+#		print("****")
+#		print(rnd.use_crop_to_border)
 		
 		if ps.RR_dim_region==False:
 			self.tot_reg=ps.RR_reg_columns*ps.RR_reg_rows
